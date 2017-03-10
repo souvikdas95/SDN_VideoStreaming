@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project name="SDN" default="clean" basedir="." xmlns:artifact="antlib:org.apache.maven.artifact.ant">
+	<description>
+		SDN Java Maven ANT Build Script
+	</description>
+	<path id="maven-ant-tasks.classpath" path="lib/maven-ant-tasks-2.1.3.jar" />
+	<typedef resource="org/apache/maven/artifact/ant/antlib.xml"
+           uri="antlib:org.apache.maven.artifact.ant"
+           classpathref="maven-ant-tasks.classpath" />
+	<property file="build.properties"/>
+	<artifact:pom id="pomfile" file="pom.xml" />
+	<artifact:dependencies filesetId="mvn-dependencies" pomRefId="pomfile" />
+	<path id="build.classpath">
+		<fileset refid="mvn-dependencies" />
+	</path>
+	<target name="compile" description="compile the source">
+		<mkdir dir="src/streamVLC/build"/>
+		<mkdir dir="src/recordVLC/build"/>
+		<mkdir dir="src/playVLC/build"/>
+		<javac debug="true" debuglevel="source,lines,vars" destdir="src/streamVLC/build" includeantruntime="false" classpathref="build.classpath">
+			<src path="src/streamVLC/java"/>
+			<compilerarg value="-Xlint:unchecked"/>
+		</javac>
+		<javac debug="true" debuglevel="source,lines,vars" destdir="src/recordVLC/build" includeantruntime="false" classpathref="build.classpath">
+			<src path="src/recordVLC/java"/>
+			<compilerarg value="-Xlint:unchecked"/>
+		</javac>
+		<javac debug="true" debuglevel="source,lines,vars" destdir="src/playVLC/build" includeantruntime="false" classpathref="build.classpath">
+			<src path="src/playVLC/java"/>
+			<compilerarg value="-Xlint:unchecked"/>
+		</javac>
+	</target>
+	<target name="dist" depends="compile" description="generate the distribution">
+		<mkdir dir="target"/>
+		<delete file="target/streamVLC.jar"/>
+		<delete file="target/recordVLC.jar"/>
+		<delete file="target/playVLC.jar"/>
+		<jar destfile="target/streamVLC.jar" basedir="src/streamVLC/build">
+		    <manifest>
+		        <attribute name="Main-Class" value="streamVLC.streamVLC"/>
+		    </manifest>
+		    <zipgroupfileset refid="mvn-dependencies"/>
+		</jar>
+		<jar destfile="target/recordVLC.jar" basedir="src/recordVLC/build">
+		    <manifest>
+		        <attribute name="Main-Class" value="recordVLC.recordVLC"/>
+		    </manifest>
+		    <zipgroupfileset refid="mvn-dependencies"/>
+		</jar>
+		<jar destfile="target/playVLC.jar" basedir="src/playVLC/build">
+		    <manifest>
+		        <attribute name="Main-Class" value="playVLC.playVLC"/>
+		    </manifest>
+		    <zipgroupfileset refid="mvn-dependencies"/>
+		</jar>
+	</target>
+	<target name="clean" depends="dist" description="cleaning precompiled files">
+		<delete dir="src/streamVLC/build"/>
+		<delete dir="src/recordVLC/build"/>
+		<delete dir="src/playVLC/build"/>
+	</target>
+</project>

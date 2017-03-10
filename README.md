@@ -3,7 +3,20 @@
 Pre-requisites:
 
 	Floodlight (v1.2+ or Master)
-	Mininet (2.2.0+ or Master)
+	Mininet (2.2.0b+ or Master)
+	Apache Ant (1.6.0+)
+	JDK (1.8+)
+	Python (2.3.7)
+	GCC (C13/C99) (Temporary)
+	Apache Maven (3.3.9+)
+	
+Installation:
+
+	1. Install Floodlight (w/ all Submodules)
+	2. Install Mininet (w/ all Submodules + Full Install)
+	3. Install Dependencies - JDK, GCC, Python, Apache Ant, Apache Maven
+	4. Run "$ant" in the base directory
+	5. Run "$python SDN_mininet.py" in the base directory
 
 Noise Calculation:
 
