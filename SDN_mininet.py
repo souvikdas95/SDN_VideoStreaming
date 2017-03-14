@@ -142,11 +142,11 @@ def STREAM(STREAM_SRC, STREAM_DST):
 				'tshark -i \'' + h_src.defaultIntf().name + '\' -f \'host ' + STREAM_IP + ' and port ' + str(STREAM_PORT) + '\' -w \'output' + os.path.sep + 'pcap' + os.path.sep + 'source_host.pcap\' '
 				'&>output' + os.path.sep + 'logs' + os.path.sep + 'tshark_source.log &');
 
-	# Sleep for 15 Seconds
+	# Sleep for 10 Seconds
 	info('*** Wait 10 Seconds for Network to Settle . . .\n');
 	time.sleep(10);
 
-	# Start Streaming
+	# Prepare Stream Recorder
 	info('*** Preparing Stream Recorder . . .\n');
 	h_dst.cmd(	'cd \'' + BASE_DIR + os.path.sep + 'target' + '\' && '
 				'java -jar \'recordVLC.jar\' \'' + STREAM_IP + '\' \'' + str(STREAM_PORT) + '\' \'' + STREAM_DST + '\' '
@@ -155,6 +155,7 @@ def STREAM(STREAM_SRC, STREAM_DST):
 	# Sleep for 3 Seconds
 	time.sleep(3);
 
+	# Start Stream Server
 	info('*** Starting Stream Server . . .\n');
 	h_src.cmd(	'cd \'' + BASE_DIR + os.path.sep + 'target' + '\' && '
 				'java -jar \'streamVLC.jar\' \'' + STREAM_IP + '\' \'' + str(STREAM_PORT) + '\' \'' + STREAM_SRC + '\' '
