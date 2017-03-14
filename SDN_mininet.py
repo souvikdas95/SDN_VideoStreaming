@@ -128,7 +128,8 @@ def STREAM(STREAM_SRC, STREAM_DST):
 	for i in range(NOISE_SWITCHES):
 		for j in range(NOISE_HOSTS_PER_SWITCH):
 			noise_hlist[i][j].cmd(	'cd \'' + BASE_DIR + os.path.sep + 'target' + '\' && '
-								 	'./noise_udp ' + str(NOISE_SOCKET_PORT) + ' ' + str(NOISE_PACKET_PAYLOAD_SIZE) + ' ' + str(NOISE_PACKET_DELAY) + ' '
+									'java -jar \'NoiseUDP.jar\' \'' + str(NOISE_SOCKET_PORT) + '\' \'' + str(NOISE_PACKET_PAYLOAD_SIZE) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
+#									'./noise_udp ' + str(NOISE_SOCKET_PORT) + ' ' + str(NOISE_PACKET_PAYLOAD_SIZE) + ' ' + str(NOISE_PACKET_DELAY) + ' '
 									'&>' + os.path.pardir + os.path.sep + 'output' + os.path.sep + 'logs' + os.path.sep + 'noise_udp.log &');
 
 	# Initialize Packet Capture

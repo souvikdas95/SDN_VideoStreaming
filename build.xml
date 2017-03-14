@@ -17,6 +17,7 @@
 		<mkdir dir="src/streamVLC/build"/>
 		<mkdir dir="src/recordVLC/build"/>
 		<mkdir dir="src/playVLC/build"/>
+		<mkdir dir="src/NoiseUDP/build"/>
 		<javac debug="true" debuglevel="source,lines,vars" destdir="src/streamVLC/build" includeantruntime="false" classpathref="build.classpath">
 			<src path="src/streamVLC/java"/>
 			<compilerarg value="-Xlint:unchecked"/>
@@ -29,12 +30,17 @@
 			<src path="src/playVLC/java"/>
 			<compilerarg value="-Xlint:unchecked"/>
 		</javac>
+		<javac debug="true" debuglevel="source,lines,vars" destdir="src/NoiseUDP/build" includeantruntime="false" classpathref="build.classpath">
+			<src path="src/NoiseUDP/java"/>
+			<compilerarg value="-Xlint:unchecked"/>
+		</javac>
 	</target>
 	<target name="dist" depends="compile" description="generate the distribution">
 		<mkdir dir="target"/>
 		<delete file="target/streamVLC.jar"/>
 		<delete file="target/recordVLC.jar"/>
 		<delete file="target/playVLC.jar"/>
+		<delete file="target/NoiseUDP.jar"/>
 		<jar destfile="target/streamVLC.jar" basedir="src/streamVLC/build">
 		    <manifest>
 		        <attribute name="Main-Class" value="streamVLC.streamVLC"/>
@@ -53,10 +59,16 @@
 		    </manifest>
 		    <zipgroupfileset refid="mvn-dependencies"/>
 		</jar>
+		<jar destfile="target/NoiseUDP.jar" basedir="src/NoiseUDP/build">
+		    <manifest>
+		        <attribute name="Main-Class" value="NoiseUDP.NoiseUDP"/>
+		    </manifest>
+		</jar>
 	</target>
 	<target name="clean" depends="dist" description="cleaning precompiled files">
 		<delete dir="src/streamVLC/build"/>
 		<delete dir="src/recordVLC/build"/>
 		<delete dir="src/playVLC/build"/>
+		<delete dir="src/NoiseUDP/build"/>
 	</target>
 </project>
