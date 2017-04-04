@@ -4,7 +4,7 @@
 	Documentation: Pending . . .
 """
 
-import sys, os, threading, time;
+import sys, os, threading, time, math, random;
 
 # Suppress .pyc generation
 sys.dont_write_bytecode = True;
@@ -15,18 +15,20 @@ BASE_DIR = os.path.dirname(os.path.realpath(__file__));
 # Add BASE_DIR to PYTHONPATH
 sys.path.append(BASE_DIR);
 
-from mininet.net import Mininet
-from mininet.cli import CLI
-from mininet.log import setLogLevel, info
-from mininet.node import Node
-from mininet.util import waitListening
-from mininet.node import OVSSwitch, Controller, RemoteController
-from mininet.link import OVSLink
-from mininet.link import OVSIntf
-from mininet.link import TCLink
-from mininet.link import TCIntf
-from mininet.clean import Cleanup
+# Mininet Imports
+from mininet.net import Mininet;
+from mininet.cli import CLI;
+from mininet.log import setLogLevel, info;
+from mininet.node import Node;
+from mininet.util import waitListening;
+from mininet.node import OVSSwitch, Controller, RemoteController;
+from mininet.link import OVSLink;
+from mininet.link import OVSIntf;
+from mininet.link import TCLink;
+from mininet.link import TCIntf;
+from mininet.clean import Cleanup;
 
+# Import Configuration
 from SDN_config import *;
 
 # Create Mininet Instance
@@ -35,132 +37,142 @@ net = Mininet(topo = None, controller = None, build = False, waitConnected = Tru
 
 # Connect to Controller
 info('*** Connecting to controller\n');
-net.addController('c0', controller = RemoteController, ip = '127.0.0.1', port = 6653);
+net.addController('c0', controller = RemoteController, ip = '127.0.0.1', port = 6653, ipBase = '10.0.0.128');
+
+# Declare IP Pool
+info('*** Declaring IP Pool\n');
+iter_ip = IP2INT('10.0.0.128'); # Starting Address
 
 # Create Switches
 info('*** Creating switches (Open vSwitch w/ OpenFlow13)\n');
-sw_src = net.addSwitch('s0', cls = OVSSwitch, protocols = 'OpenFlow13', inband = False); # Source Switch
-noise_swlist = [];
-for i in range(NOISE_SWITCHES):
-    noise_swlist.append(net.addSwitch('s' + str(i + 1), cls = OVSSwitch, protocols = 'OpenFlow13', inband = False));
-sw_dst = net.addSwitch('s' + str(i + 2), cls = OVSSwitch, protocols = 'OpenFlow13', inband = False); # Destination Switch
-
-# Create Switch - Switch Links (Bus Topology)
-info('*** Creating Switch - Switch Links (Bus Topology)\n');
-swlink_src = net.addLink(sw_src, noise_swlist[0], cls = TCLink, Intf = TCIntf, fast = False); # Link to Source Switch
-noise_swlinklist = [];
-for i in range(NOISE_SWITCHES - 1):
-    noise_swlinklist.append(net.addLink(noise_swlist[i], noise_swlist[i + 1], cls = TCLink, Intf = TCIntf, fast = False));
-swlink_dst = net.addLink(noise_swlist[i + 1], sw_dst, cls = TCLink, Intf = TCIntf, fast = False); # Link to Destination Switch
-
-# Declare IP Pool
-iter_ip = IP2INT('10.0.0.128'); # Starting Address
+switch_list = [];
+for i in range(SWITCH_COUNT):
+    sid = i + 1;
+    switch_list.append(net.addSwitch('s' + str(sid), cls = OVSSwitch, protocols = 'OpenFlow13', inband = False));
 
 # Create Hosts
 info('*** Creating hosts\n');
-h_src = net.addHost('h0', ip = INT2IP(iter_ip)); # Source Host
-iter_ip += 1;
-noise_hlist = [];
-for i in range(NOISE_SWITCHES):
-    noise_hlist.insert(i, []);
-    for j in range(NOISE_HOSTS_PER_SWITCH):
-        noise_hlist[i].append(net.addHost('h' + str(i * NOISE_HOSTS_PER_SWITCH + j + 1), ip = INT2IP(iter_ip)));
+switch_host_list = [];
+host_list = []
+for i in range(SWITCH_COUNT):
+    switch_host_list.append([]);
+    for j in range(HOST_COUNT_PER_SWITCH):
+        hid = (i * HOST_COUNT_PER_SWITCH + j) + 1;
+        h = net.addHost('h' + str(hid), ip = INT2IP(iter_ip));
+        switch_host_list[i].append(h);
+        host_list.append(h);
         iter_ip += 1;
-h_dst = net.addHost('h' + str(i * NOISE_HOSTS_PER_SWITCH + j + 1 + 1), ip = INT2IP(iter_ip)); # Destination Host 
-iter_ip += 1;
 
-# Create Host - Switch Links (Star Topology)
-info('*** Creating Host - Switch Links (Star Topology)\n');
-hlink_src = net.addLink(h_src, sw_src, cls = TCLink, Intf = TCIntf, fast = False); # Link from Source Host to Source Switch
-noise_hlinklist = [];
-for i in range(NOISE_SWITCHES):
-    noise_hlinklist.insert(i, []);
-    for j in range(NOISE_HOSTS_PER_SWITCH):
-        noise_hlinklist[i].append(net.addLink(noise_swlist[i], noise_hlist[i][j], cls = TCLink, Intf = TCIntf, fast = False));
-hlink_dst = net.addLink(sw_dst, h_dst, cls = TCLink, Intf = TCIntf, fast = False); # Link from Destination Switch to Destination Host
+# Create Switch - Switch Links
+info('*** Creating Switch - Switch Links\n');
+switch_switch_link_list = []
+if TOPOLOGY_TYPE == 1:
+    for i in range(SWITCH_COUNT - 1):
+        switch_switch_link_list.append(net.addLink(switch_list[i], switch_list[i + 1], cls = TCLink, Intf = TCIntf, fast = False));
+elif TOPOLOGY_TYPE == 2:
+    for i in range(SWITCH_COUNT - 1):
+        switch_switch_link_list.append(net.addLink(switch_list[i], switch_list[i + 1], cls = TCLink, Intf = TCIntf, fast = False));
+    switch_switch_link_list.append(net.addLink(switch_list[SWITCH_COUNT - 1], switch_list[0], cls = TCLink, Intf = TCIntf, fast = False));
+elif TOPOLOGY_TYPE == 3:
+    for i in range(SWITCH_COUNT - 1):
+        for j in range(i + 1, SWITCH_COUNT):
+            switch_switch_link_list.append(net.addLink(switch_list[i], switch_list[j], cls = TCLink, Intf = TCIntf, fast = False));
+elif TOPOLOGY_TYPE == 4:
+    pass; # Nothing to do with 1 Switch :V
+
+# Create Switch - Host Links
+info('*** Creating Switch - Host Links\n');
+switch_host_link_list = [];
+for i in range(SWITCH_COUNT):
+	switch_host_link_list.append([]);
+	for j in range(HOST_COUNT_PER_SWITCH):
+		switch_host_link_list[i].append(net.addLink(switch_list[i], switch_host_list[i][j], cls = TCLink, Intf = TCIntf, fast = False));
 
 # Start Network
 info('*** Starting Network\n');
 net.start();
 
-# Print Required Host Information
+# Print Required Source Destination Information
 info('********************\n');
-info('Source Host: ' + h_src.name + ' (' + h_src.IP(intf = h_src.defaultIntf()) + ')\n');
-info('Destination Host: ' + h_dst.name + ' (' + h_dst.IP(intf = h_dst.defaultIntf()) + ')\n');
+source_host = host_list[0];
+info('*** Source Host: ' + source_host.name + ' (' + source_host.IP(intf = source_host.defaultIntf()) + ')\n');
+dest_host_list = random.sample(host_list[1::], DESTINATION_COUNT);
+info('*** Destination Hosts: \n');
+for i in range(DESTINATION_COUNT):
+    info('*** ' + dest_host_list[i].name + ' (' + dest_host_list[i].IP(intf = dest_host_list[i].defaultIntf()) + ')\n');
 info('********************\n');
 
 # Configure Traffic Control on Switch - Switch Interfaces
-info('*** Configuring Traffic Control on Switch - Switch Interfaces\n');
-setLogLevel('error');
-swlink_src.intf1.config(bw = LINK_SPEED);
-swlink_src.intf2.config(bw = LINK_SPEED);
-for i in range(NOISE_SWITCHES - 1):
-    noise_swlinklist[i].intf1.config(bw = LINK_SPEED);
-    noise_swlinklist[i].intf2.config(bw = LINK_SPEED);
-swlink_dst.intf1.config(bw = LINK_SPEED);
-swlink_dst.intf2.config(bw = LINK_SPEED);
-setLogLevel('info');
+if TOPOLOGY_TYPE != 4:
+    info('*** Configuring Traffic Control on Switch - Switch Interfaces\n');
+    setLogLevel('error');
+    for i in range(len(switch_switch_link_list)):
+        switch_switch_link_list[i].intf1.config(bw = SWITCH_LINK_SPEED);
+        switch_switch_link_list[i].intf2.config(bw = SWITCH_LINK_SPEED);
+    setLogLevel('info');
 
-# Configure Traffic Control on Host - Switch Interfaces
-info('*** Configuring Traffic Control on Host - Switch Interfaces\n');
+# Configure Traffic Control on Switch - Host Interfaces
+info('*** Configuring Traffic Control on Switch - Host Interfaces\n');
 setLogLevel('error');
-hlink_src.intf1.config(bw = LINK_SPEED);
-hlink_src.intf2.config(bw = LINK_SPEED);
-for i in range(NOISE_SWITCHES):
-    for j in range(NOISE_HOSTS_PER_SWITCH):
-        noise_hlinklist[i][j].intf1.config(bw = LINK_SPEED);
-        noise_hlinklist[i][j].intf2.config(bw = LINK_SPEED);
-hlink_dst.intf1.config(bw = LINK_SPEED);
-hlink_dst.intf2.config(bw = LINK_SPEED);
+for i in range(SWITCH_COUNT):
+	for j in range(HOST_COUNT_PER_SWITCH):
+		switch_host_link_list[i][j].intf1.config(bw = HOST_LINK_SPEED);
+		switch_host_link_list[i][j].intf2.config(bw = HOST_LINK_SPEED);
 setLogLevel('info');
 
 # Configure Host Default Routes
 info('*** Configuring Host Default Routes\n');
-h_src.setDefaultRoute(h_src.defaultIntf());
-for i in range(NOISE_SWITCHES):
-    for j in range(NOISE_HOSTS_PER_SWITCH):
-        noise_hlist[i][j].setDefaultRoute(noise_hlist[i][j].defaultIntf());
-h_dst.setDefaultRoute(h_dst.defaultIntf());
+for i in range(SWITCH_COUNT * HOST_COUNT_PER_SWITCH):
+    host_list[i].setDefaultRoute(host_list[i].defaultIntf());
 
 def STREAM(STREAM_SRC, STREAM_DST):
+	# Initialize Packet Capture
+	info('\n*** Initializing Packet Capture . . .\n');
+	source_host.cmd('cd \'' + BASE_DIR + '\' && '
+					'touch \'output' + os.path.sep + 'pcap' + os.path.sep + 'source_host.pcap\' && '
+					'tshark -i \'' + source_host.defaultIntf().name + '\' -f \'host ' + str(STREAM_IP) + ' and port ' + str(STREAM_PORT) + '\' -w \'output' + os.path.sep + 'pcap' + os.path.sep + 'source_host.pcap\' '
+					'&> \'output' + os.path.sep + 'logs' + os.path.sep + 'tshark_source.log\' 2>&1 &');
+	for i in range(DESTINATION_COUNT):
+		dest_host_list[i].cmd(	'cd \'' + BASE_DIR + '\' && '
+								'touch \'output' + os.path.sep + 'pcap' + os.path.sep + 'destination_host_' + str(i) + '.pcap\' && '
+								'tshark -i \'' + dest_host_list[i].defaultIntf().name + '\' -f \'host ' + str(STREAM_IP) + ' and port ' + str(STREAM_PORT) + '\' -w \'output' + os.path.sep + 'pcap' + os.path.sep + 'destination_host_' + str(i) + '.pcap\' '
+								'&> \'output' + os.path.sep + 'logs' + os.path.sep + 'tshark_destination_' + str(i) + '.log\' 2>&1 &');
+	
 	# Start Noise
 	info('*** Starting Noise . . .\n');
-	for i in range(NOISE_SWITCHES):
-		for j in range(NOISE_HOSTS_PER_SWITCH):
-			noise_hlist[i][j].cmd(	'cd \'' + BASE_DIR + os.path.sep + 'target' + '\' && '
-									'java -jar \'NoiseUDP.jar\' \'' + str(NOISE_SOCKET_PORT) + '\' \'' + str(NOISE_PACKET_PAYLOAD_SIZE) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
-#									'./noise_udp ' + str(NOISE_SOCKET_PORT) + ' ' + str(NOISE_PACKET_PAYLOAD_SIZE) + ' ' + str(NOISE_PACKET_DELAY) + ' '
-									'&>' + os.path.pardir + os.path.sep + 'output' + os.path.sep + 'logs' + os.path.sep + 'noise_udp.log &');
-
-	# Initialize Packet Capture
-	info('*** Initializing Packet Capture . . .\n');
-	h_dst.cmd(	'cd \'' + BASE_DIR + '\' && '
-				'touch \'output' + os.path.sep + 'pcap' + os.path.sep + 'destination_host.pcap\' && '
-				'tshark -i \'' + h_dst.defaultIntf().name + '\' -f \'host ' + STREAM_IP + ' and port ' + str(STREAM_PORT) + '\' -w \'output' + os.path.sep + 'pcap' + os.path.sep + 'destination_host.pcap\' '
-				'&>output' + os.path.sep + 'logs' + os.path.sep + 'tshark_destination.log &');
-	h_src.cmd(	'cd \'' + BASE_DIR + '\' && '
-				'touch \'output' + os.path.sep + 'pcap' + os.path.sep + 'source_host.pcap\' && '
-				'tshark -i \'' + h_src.defaultIntf().name + '\' -f \'host ' + STREAM_IP + ' and port ' + str(STREAM_PORT) + '\' -w \'output' + os.path.sep + 'pcap' + os.path.sep + 'source_host.pcap\' '
-				'&>output' + os.path.sep + 'logs' + os.path.sep + 'tshark_source.log &');
-
+	for i in range(1, SWITCH_COUNT * HOST_COUNT_PER_SWITCH):
+		if host_list[i] not in dest_host_list:
+			host_list[i].cmd(	'cd \'' + BASE_DIR + os.path.sep + 'target' + '\' && '
+								'java -jar \'NoiseUDP.jar\' \'' + str(NOISE_PORT) + '\' \'' + str(NOISE_PACKET_PAYLOAD_SIZE) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
+								'&> \'' + os.path.pardir + os.path.sep + 'output' + os.path.sep + 'logs' + os.path.sep + 'noise_udp.log\' 2>&1 &');
+	
 	# Sleep for 10 Seconds
 	info('*** Wait 10 Seconds for Network to Settle . . .\n');
 	time.sleep(10);
-
-	# Prepare Stream Recorder
-	info('*** Preparing Stream Recorder . . .\n');
-	h_dst.cmd(	'cd \'' + BASE_DIR + os.path.sep + 'target' + '\' && '
-				'java -jar \'recordVLC.jar\' \'' + STREAM_IP + '\' \'' + str(STREAM_PORT) + '\' \'' + STREAM_DST + '\' '
-				'&>' + os.path.pardir + os.path.sep + 'output' + os.path.sep + 'logs' + os.path.sep + 'recordVLC.log &');
-		
+	
+	# Prepare Stream Recorders
+	info('*** Preparing Stream Recorders . . .\n');
+	for i in range(DESTINATION_COUNT):
+		dest_host_list[i].cmd(	'cd \'' + BASE_DIR + os.path.sep + 'target' + '\' && '
+								'java -jar \'recordVLC.jar\' \'' + str(STREAM_IP) + '\' \'' + str(STREAM_PORT) + '\' \'' + STREAM_DST + os.path.sep + 'rec_' + str(i) + '.ts\' '
+								'&> \'' + os.path.pardir + os.path.sep + 'output' + os.path.sep + 'logs' + os.path.sep + 'recordVLC_' + str(i) + '.log\' 2>&1 &');
+	
 	# Sleep for 3 Seconds
 	time.sleep(3);
 
+	# Draw Frame# Source Video
+	info('*** Preparing Stream Content . . .\n');
+	MOD_SOURCE_FILENAME = 'mod_' + os.path.split(STREAM_SRC)[1];
+	source_host.cmd('ffmpeg -i \'' + STREAM_SRC + '\' '
+					'-vf \'drawtext=fontfile=Arial.ttf: text=%{n}: x=0: y=0: fontcolor=white: box=1: boxcolor=0x00000099\' '
+					'-y \'' + STREAM_DST + os.path.sep + MOD_SOURCE_FILENAME + '\' '
+					'&> \'' + BASE_DIR + os.path.sep + 'output' + os.path.sep + 'logs' + os.path.sep + 'ffmpeg_drawtext' +'.log\' 2>&1 &');
+
 	# Start Stream Server
 	info('*** Starting Stream Server . . .\n');
-	h_src.cmd(	'cd \'' + BASE_DIR + os.path.sep + 'target' + '\' && '
-				'java -jar \'streamVLC.jar\' \'' + STREAM_IP + '\' \'' + str(STREAM_PORT) + '\' \'' + STREAM_SRC + '\' '
-				'&>' + os.path.pardir + os.path.sep + 'output' + os.path.sep + 'logs' + os.path.sep + 'streamVLC.log &');
+	source_host.cmd('cd \'' + BASE_DIR + os.path.sep + 'target' + '\' && '
+					'java -jar \'streamVLC.jar\' \'' + str(STREAM_IP) + '\' \'' + str(STREAM_PORT) + '\' \'' + STREAM_DST + os.path.sep + MOD_SOURCE_FILENAME + '\' '
+					'&> \'' + os.path.pardir + os.path.sep + 'output' + os.path.sep + 'logs' + os.path.sep + 'streamVLC.log\' 2>&1 &');
 		
 	info('*** Streaming Successfully Started!\n');
 
@@ -168,20 +180,16 @@ def STREAM(STREAM_SRC, STREAM_DST):
 class CustomCLI(CLI):
 	def do_stream(self, _line):
 		argv = _line.split();
-		if len(argv) > 0:
-			if os.path.isabs(argv[0]):
-				arg1 = argv[0];
-			else:
-				arg1 = BASE_DIR + os.path.sep + argv[0];
+		if len(argv) > 0 and os.path.isfile(arg1) is True:
+			arg1 = os.path.abspath(argv[0]);
 		else:
-			arg1 = BASE_DIR + os.path.sep + 'samples/sample1.avi';
+			arg1 = os.path.abspath(BASE_DIR + os.path.sep + 'samples' + os.path.sep + 'sample1.avi');
 		if len(argv) > 1:
-			if os.path.isabs(argv[1]):
-				arg2 = argv[1];
-			else:
-				arg2 = BASE_DIR + os.path.sep + argv[1];
+			if os.path.isdir(arg2) is False:
+				os.makedirs(arg2, mode = 0777);
+			arg2 = os.path.abspath(argv[1]);
 		else:
-			arg2 = BASE_DIR + os.path.sep + 'output/recording/sample1.ts';
+			arg2 = os.path.abspath(BASE_DIR + os.path.sep + 'output' + os.path.sep + 'videos');
 		t = threading.Thread(target = STREAM, args = (arg1, arg2));
 		t.start();
 
