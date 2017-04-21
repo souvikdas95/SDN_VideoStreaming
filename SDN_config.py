@@ -134,7 +134,7 @@ while True:
     except ValueError:
         info ('*** Error: Invalid Input\n');
         continue;
-    if DESTINATION_COUNT not in range(1, MAX_DESTINATION_COUNT + 1):
+    if DESTINATION_COUNT < 1 or DESTINATION_COUNT > MAX_DESTINATION_COUNT:
         info ('*** Error: Input out of range\n');
         continue;
     break;
@@ -144,7 +144,7 @@ while True:
     except ValueError:
         info ('*** Error: Invalid Input\n');
         continue;
-    if SWITCH_LINK_SPEED not in range(1, 1000 + 1):
+    if SWITCH_LINK_SPEED < 1 or SWITCH_LINK_SPEED > 1000:
         info ('*** Error: Input out of range\n');
         continue;
     break;
@@ -154,16 +154,21 @@ while True:
     except ValueError:
         info ('*** Error: Invalid Input\n');
         continue;
-    if HOST_LINK_SPEED not in range(1, 1000 + 1):
+    if HOST_LINK_SPEED < 1 or HOST_LINK_SPEED > 1000:
         info ('*** Error: Input out of range\n');
         continue;
     break;
 while True:
-    STREAM_IP = IP2INT(raw_input('Enter Mutlicast Source IP: ') or STREAM_IP);
+    try:
+    	STREAM_IP = IP2INT(raw_input('Enter Mutlicast Source IP: ') or STREAM_IP);
+    except:
+    	continue;
     if STREAM_IP == 0:
         info ('*** Error: Invalid Input\n');
         continue;
-    if STREAM_IP not in range(IP2INT('234.0.0.1'), IP2INT('239.255.255.255') + 1):
+    IP_RANGE_MIN = IP2INT('224.0.0.1');
+    IP_RANGE_MAX = IP2INT('239.255.255.255');
+    if STREAM_IP < IP_RANGE_MIN or STREAM_IP > IP_RANGE_MAX:
         info ('*** Error: Input out of range\n');
         continue;
     break;
@@ -173,7 +178,7 @@ while True:
     except ValueError:
         info ('*** Error: Invalid Input\n');
         continue;
-    if STREAM_PORT not in range(1024, 65535 + 1):
+    if STREAM_PORT < 1024 or STREAM_PORT > 65535:
         info ('*** Error: Input out of range\n');
         continue;
     break;
@@ -183,7 +188,7 @@ while True:
     except ValueError:
         info ('*** Error: Invalid Input\n');
         continue;
-    if NOISE_PORT not in range(1024, 65535 + 1):
+    if NOISE_PORT < 1024 or NOISE_PORT > 65535:
         info ('*** Error: Input out of range\n');
         continue;
     break;

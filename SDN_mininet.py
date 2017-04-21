@@ -15,6 +15,17 @@ BASE_DIR = os.path.dirname(os.path.realpath(__file__));
 # Add BASE_DIR to PYTHONPATH
 sys.path.append(BASE_DIR);
 
+# Make Directories Save (Create if not exists)
+def makedirs_s(s):
+	if os.path.exists(s) is False:
+		os.makedirs(s);
+
+# Tag & Make Directories
+TARGET_DIR = BASE_DIR + os.path.sep + 'target';
+makedirs_s(TARGET_DIR);
+OUTPUT_DIR = BASE_DIR + os.path.sep + 'output';
+makedirs_s(OUTPUT_DIR);
+
 # Mininet Imports
 from mininet.net import Mininet;
 from mininet.cli import CLI;
@@ -125,72 +136,119 @@ info('*** Configuring Host Default Routes\n');
 for i in range(SWITCH_COUNT * HOST_COUNT_PER_SWITCH):
     host_list[i].setDefaultRoute(host_list[i].defaultIntf());
 
-def STREAM(STREAM_SRC, STREAM_DST):
-	# Initialize Packet Capture
-	info('\n*** Initializing Packet Capture . . .\n');
-	source_host.cmd('cd \'' + BASE_DIR + '\' && '
-					'touch \'output' + os.path.sep + 'pcap' + os.path.sep + 'source_host.pcap\' && '
-					'tshark -i \'' + source_host.defaultIntf().name + '\' -f \'host ' + str(STREAM_IP) + ' and port ' + str(STREAM_PORT) + '\' -w \'output' + os.path.sep + 'pcap' + os.path.sep + 'source_host.pcap\' '
-					'&> \'output' + os.path.sep + 'logs' + os.path.sep + 'tshark_source.log\' 2>&1 &');
-	for i in range(DESTINATION_COUNT):
-		dest_host_list[i].cmd(	'cd \'' + BASE_DIR + '\' && '
-								'touch \'output' + os.path.sep + 'pcap' + os.path.sep + 'destination_host_' + str(i) + '.pcap\' && '
-								'tshark -i \'' + dest_host_list[i].defaultIntf().name + '\' -f \'host ' + str(STREAM_IP) + ' and port ' + str(STREAM_PORT) + '\' -w \'output' + os.path.sep + 'pcap' + os.path.sep + 'destination_host_' + str(i) + '.pcap\' '
-								'&> \'output' + os.path.sep + 'logs' + os.path.sep + 'tshark_destination_' + str(i) + '.log\' 2>&1 &');
-	
-	# Start Noise
-	info('*** Starting Noise . . .\n');
-	for i in range(1, SWITCH_COUNT * HOST_COUNT_PER_SWITCH):
-		if host_list[i] not in dest_host_list:
-			host_list[i].cmd(	'cd \'' + BASE_DIR + os.path.sep + 'target' + '\' && '
-								'java -jar \'NoiseUDP.jar\' \'' + str(NOISE_PORT) + '\' \'' + str(NOISE_PACKET_PAYLOAD_SIZE) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
-								'&> \'' + os.path.pardir + os.path.sep + 'output' + os.path.sep + 'logs' + os.path.sep + 'noise_udp.log\' 2>&1 &');
-	
-	# Sleep for 10 Seconds
-	info('*** Wait 10 Seconds for Network to Settle . . .\n');
-	time.sleep(10);
-	
-	# Prepare Stream Recorders
-	info('*** Preparing Stream Recorders . . .\n');
-	for i in range(DESTINATION_COUNT):
-		dest_host_list[i].cmd(	'cd \'' + BASE_DIR + os.path.sep + 'target' + '\' && '
-								'java -jar \'recordVLC.jar\' \'' + str(STREAM_IP) + '\' \'' + str(STREAM_PORT) + '\' \'' + STREAM_DST + os.path.sep + 'rec_' + str(i) + '.ts\' '
-								'&> \'' + os.path.pardir + os.path.sep + 'output' + os.path.sep + 'logs' + os.path.sep + 'recordVLC_' + str(i) + '.log\' 2>&1 &');
-	
-	# Sleep for 3 Seconds
-	time.sleep(3);
+def STREAM(STREAM_SRC):
+	# Prepare Stream Output Directory
+	info('\n*** Preparing Stream Output Directories . . . ');
+	SOURCE_FILENAME = os.path.split(STREAM_SRC)[1];
+	_SOURCE_SPLIT = os.path.splitext(SOURCE_FILENAME);
+	V_NAME = _SOURCE_SPLIT[0];
+	V_EXT = _SOURCE_SPLIT[1];
+	version = 1;
+	STREAM_DESTDIR = OUTPUT_DIR + os.path.sep + V_NAME;
+	while os.path.exists(STREAM_DESTDIR + '_v' + str(version)) is True:
+		version = version + 1;
+	STREAM_DESTDIR = STREAM_DESTDIR + '_v' + str(version);
+	makedirs_s(STREAM_DESTDIR);
+	LOGS_DIR = STREAM_DESTDIR + os.path.sep + 'logs';
+	makedirs_s(LOGS_DIR);
+	PCAP_DIR = STREAM_DESTDIR + os.path.sep + 'pcap';
+	makedirs_s(PCAP_DIR);
+	PSNR_DIR = STREAM_DESTDIR + os.path.sep + 'psnr';
+	makedirs_s(PSNR_DIR);
+	REC_DIR = STREAM_DESTDIR + os.path.sep + 'rec';
+	makedirs_s(REC_DIR);
 
 	# Draw Frame# Source Video
-	info('*** Preparing Stream Content . . .\n');
-	MOD_SOURCE_FILENAME = 'mod_' + os.path.split(STREAM_SRC)[1];
+	info('\n*** Drawing FPS . . . ');
 	source_host.cmd('ffmpeg -i \'' + STREAM_SRC + '\' '
 					'-vf \'drawtext=fontfile=Arial.ttf: text=%{n}: x=0: y=0: fontcolor=white: box=1: boxcolor=0x00000099\' '
-					'-y \'' + STREAM_DST + os.path.sep + MOD_SOURCE_FILENAME + '\' '
-					'&> \'' + BASE_DIR + os.path.sep + 'output' + os.path.sep + 'logs' + os.path.sep + 'ffmpeg_drawtext' +'.log\' 2>&1 &');
+					'-y \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\' '
+					'> \'' + LOGS_DIR + os.path.sep + 'ffmpeg_drawtext' +'.log\' 2>&1');
 
-	# Start Stream Server
-	info('*** Starting Stream Server . . .\n');
-	source_host.cmd('cd \'' + BASE_DIR + os.path.sep + 'target' + '\' && '
-					'java -jar \'streamVLC.jar\' \'' + str(STREAM_IP) + '\' \'' + str(STREAM_PORT) + '\' \'' + STREAM_DST + os.path.sep + MOD_SOURCE_FILENAME + '\' '
-					'&> \'' + os.path.pardir + os.path.sep + 'output' + os.path.sep + 'logs' + os.path.sep + 'streamVLC.log\' 2>&1 &');
-		
-	info('*** Streaming Successfully Started!\n');
+	# Generate SDP
+	info('\n*** Generating SDP . . . ');
+	source_host.cmd('ffmpeg -fflags +genpts -i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\' '
+					'-c copy -f rtp -y \'rtp://@' + INT2IP(STREAM_IP) + ':' + str(STREAM_PORT) + '\' '
+					'> \'' + STREAM_DESTDIR + os.path.sep + V_NAME + '.sdp\' '
+					'2> \'' + LOGS_DIR + os.path.sep + 'sdp.log\'');
+
+	# Initialize Source Packet Capture
+	info('\n*** Initializing Source Packet Capture . . . ');
+	source_host.cmd('touch \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\' && '
+					'tshark -i \'' + source_host.defaultIntf().name + '\' -f \'host ' + INT2IP(STREAM_IP) + ' and port ' + str(STREAM_PORT) + '\' -w \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\' '
+					'&> \'' + LOGS_DIR + os.path.sep + 'tshark_source' + '.log\' 2>&1 &');
+
+	# Initialize Destination Packet Capture
+	info('\n*** Initializing Destination Packet Capture . . . ');
+	for i in range(DESTINATION_COUNT):
+		dest_host_list[i].cmd(	'touch \'' + PCAP_DIR + os.path.sep + 'destination_host_' + str(i) + '.pcap\' && '
+								'tshark -i \'' + dest_host_list[i].defaultIntf().name + '\' -f \'host ' + INT2IP(STREAM_IP) + ' and port ' + str(STREAM_PORT) + '\' -w \'' + PCAP_DIR + os.path.sep + 'destination_host_' + str(i) + '.pcap\' '
+								'&> \'' + LOGS_DIR + os.path.sep + 'tshark_destination_' + str(i) + '.log\' 2>&1 &');
+
+	# Start Noise
+	info('\n*** Starting Noise . . . ');
+	for i in range(1, SWITCH_COUNT * HOST_COUNT_PER_SWITCH):
+		if host_list[i] not in dest_host_list:
+			host_list[i].cmd(	'cd \'' + TARGET_DIR + '\' && '
+								'java -jar \'NoiseUDP.jar\' \'' + str(NOISE_PORT) + '\' \'' + str(NOISE_PACKET_PAYLOAD_SIZE) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
+								'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp' + '.log\' 2>&1 &');
+
+	# Wait for 10 Seconds
+	info('\n*** Wait 10 Seconds for Network to Settle . . . ');
+	time.sleep(10);
+
+	# Prepare Stream Recorders
+	info('\n*** Preparing Stream Recorders . . . ');
+	record_args_init =(	'ffmpeg -protocol_whitelist file,udp,rtcp,rtp '
+						'-i \'' + STREAM_DESTDIR + os.path.sep + V_NAME + '.sdp\' -c copy -y ');
+	def _record(_dest_host, _record_args):
+		_dest_host.cmd(_record_args);
+	thread_record_list = [];
+	for i in range(DESTINATION_COUNT):
+		record_args_end =(	'\'' + REC_DIR + os.path.sep + 'recording_' + str(i) + '.ts\' '
+							'> \'' + LOGS_DIR + os.path.sep + 'recorder_' + str(i) + '.log\' 2>&1');
+		t = threading.Thread(target=_record, args=(dest_host_list[i], record_args_init + record_args_end));
+		t.start();
+		thread_record_list.append(t);
+	time.sleep(max(5, DESTINATION_COUNT));
+
+	# Start Streamer
+	info('\n*** Starting Streamer . . . ');
+	stream_args =(	'ffmpeg -re -i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\' '
+					'-c copy -f rtp -y \'rtp://@' + INT2IP(STREAM_IP) + ':' + str(STREAM_PORT) + '\' '
+					'> \'' + LOGS_DIR + os.path.sep + 'streamer.log\' 2>&1');
+	def _stream(_source_host, _stream_args):
+		_source_host.cmd(_stream_args);
+	thread_stream = threading.Thread(target=_stream, args=(source_host, stream_args));
+	thread_stream.start();
+
+	# Wait for Stream Completion
+	thread_stream.join();
+	info('\n*** Streaming Completed . . . ');
+	for thread_record in thread_record_list:
+		thread_record.join();
+	info('\n*** Recording Completed . . . ');
+
+	# Calculate PSNR for each Recording
+	info('\n*** Calculating PSNR . . . ');
+	for i in range(DESTINATION_COUNT):
+		dest_host_list[i].cmd(	'ffmpeg -i \'' + REC_DIR + os.path.sep + 'recording_' + str(i) + '.ts\' '
+								'-vf \"movie=\'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\', psnr=stats_file=\'' + PSNR_DIR + os.path.sep + 'rec_' + str(i) + '_psnr.txt\'\" '
+								'-f rawvideo -y /dev/null '
+								'> \'' + LOGS_DIR + os.path.sep + 'rec_' + str(i) + '_psnr' + '.log\' 2>&1');
+
+	info('\n*** Streaming Successfully Completed! ');
 
 # Custom Class for CLI
 class CustomCLI(CLI):
 	def do_stream(self, _line):
 		argv = _line.split();
-		if len(argv) > 0 and os.path.isfile(arg1) is True:
-			arg1 = os.path.abspath(argv[0]);
+		if len(argv) > 0 and os.path.isfile(argv[0]) is True:
+			arg = os.path.abspath(argv[0]);
 		else:
-			arg1 = os.path.abspath(BASE_DIR + os.path.sep + 'samples' + os.path.sep + 'sample1.avi');
-		if len(argv) > 1:
-			if os.path.isdir(arg2) is False:
-				os.makedirs(arg2, mode = 0777);
-			arg2 = os.path.abspath(argv[1]);
-		else:
-			arg2 = os.path.abspath(BASE_DIR + os.path.sep + 'output' + os.path.sep + 'videos');
-		t = threading.Thread(target = STREAM, args = (arg1, arg2));
+			info('*** Invalid Path!\n');
+			return;
+		t = threading.Thread(target = STREAM, args = (arg, ));
 		t.start();
 
 # Switch to CLI
@@ -203,4 +261,3 @@ net.stop();
 # Cleanup
 info('*** Cleaning Up\n');
 Cleanup.cleanup();
-

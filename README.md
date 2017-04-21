@@ -4,6 +4,7 @@ Pre-requisites:
 
 	Floodlight (v1.2+ or Master)
 	Mininet (2.2.0b+ or Master)
+	FFMpeg (2.0+ or Master)
 	Apache Ant (1.6.0+)
 	JDK (1.8+)
 	Python (2.3.7)
@@ -14,9 +15,10 @@ Installation:
 
 	1. Install Floodlight (w/ all Submodules)
 	2. Install Mininet (w/ all Submodules + Full Install)
-	3. Install Dependencies - JDK, GCC, Python, Apache Ant, Apache Maven
-	4. Run "$ant" in the base directory
-	5. Run "$python SDN_mininet.py" in the base directory
+	3. Install FFmpeg (w/ all Submodules + default Compilation configuration given on Site)
+	4. Install Dependencies - JDK, GCC, Python, Apache Ant, Apache Maven
+	5. Run "$ant" in the base directory (Proxy is not supported)
+	6. Run "$python SDN_mininet.py" in the base directory
 
 Noise Calculation:
 
