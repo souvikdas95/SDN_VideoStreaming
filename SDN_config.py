@@ -36,18 +36,20 @@ info('************************************\n');
 info('\n');
 
 # Input Confugration
+TOPOlOGY_LIST = ['Bus', 'Ring', 'Mesh', 'Star', 'Random'];
 info('*** Topologies Available:\n');
 info('*** 1. Bus\n');
 info('*** 2. Ring\n');
 info('*** 3. Mesh\n');
 info('*** 4. Star\n');
+info('*** 5. Random\n');
 while True:
     try:
         TOPOLOGY_TYPE = int(raw_input('Enter Topology: ') or str(TOPOLOGY_TYPE));
     except ValueError:
         info ('*** Error: Invalid Input\n');
         continue;
-    if TOPOLOGY_TYPE not in range(1, 4 + 1):
+    if TOPOLOGY_TYPE not in range(1, 5 + 1):
         info ('*** Error: Input out of range\n');
         continue;
     break;
@@ -124,6 +126,27 @@ elif TOPOLOGY_TYPE == 4:
             info ('*** Error: Invalid Input\n');
             continue;
         if HOST_COUNT_PER_SWITCH < 2:
+            info ('*** Error: Input out of range\n');
+            continue;
+        break;
+elif TOPOLOGY_TYPE == 5:
+    while True:
+        try:
+            SWITCH_COUNT = int(raw_input('Enter number of switches (>= 1): ') or str(SWITCH_COUNT));
+        except ValueError:
+            info ('*** Error: Invalid Input\n');
+            continue;
+        if SWITCH_COUNT < 1:
+            info ('*** Error: Input out of range\n');
+            continue;
+        break;
+    while True:
+        try:
+            HOST_COUNT_PER_SWITCH = int(raw_input('Enter max. hosts per switch (>= 1): ') or str(HOST_COUNT_PER_SWITCH));
+        except ValueError:
+            info ('*** Error: Invalid Input\n');
+            continue;
+        if HOST_COUNT_PER_SWITCH < 1:
             info ('*** Error: Input out of range\n');
             continue;
         break;

@@ -4,7 +4,7 @@
 	Documentation: Pending . . .
 """
 
-import sys, os, threading, time, math, random;
+import sys, os, threading, time, math, random, csv;
 
 # Suppress .pyc generation
 sys.dont_write_bytecode = True;
@@ -21,8 +21,8 @@ def makedirs_s(s):
 		os.makedirs(s);
 
 # Tag & Make Directories
-TARGET_DIR = BASE_DIR + os.path.sep + 'target';
-makedirs_s(TARGET_DIR);
+# TARGET_DIR = BASE_DIR + os.path.sep + 'target';
+# makedirs_s(TARGET_DIR);
 OUTPUT_DIR = BASE_DIR + os.path.sep + 'output';
 makedirs_s(OUTPUT_DIR);
 
@@ -57,22 +57,27 @@ iter_ip = IP2INT('10.0.0.128'); # Starting Address
 # Create Switches
 info('*** Creating switches (Open vSwitch w/ OpenFlow13)\n');
 switch_list = [];
+switch_count = 0;
 for i in range(SWITCH_COUNT):
-    sid = i + 1;
-    switch_list.append(net.addSwitch('s' + str(sid), cls = OVSSwitch, protocols = 'OpenFlow13', inband = False));
+    switch_count += 1;
+    switch_list.append(net.addSwitch('s' + str(switch_count), cls = OVSSwitch, protocols = 'OpenFlow13', inband = False));
 
 # Create Hosts
 info('*** Creating hosts\n');
 switch_host_list = [];
 host_list = []
+host_count_in_switch = HOST_COUNT_PER_SWITCH;
+host_count = 0;
 for i in range(SWITCH_COUNT):
-    switch_host_list.append([]);
-    for j in range(HOST_COUNT_PER_SWITCH):
-        hid = (i * HOST_COUNT_PER_SWITCH + j) + 1;
-        h = net.addHost('h' + str(hid), ip = INT2IP(iter_ip));
-        switch_host_list[i].append(h);
-        host_list.append(h);
-        iter_ip += 1;
+	switch_host_list.append([]);
+	if TOPOLOGY_TYPE == 5:
+		host_count_in_switch = random.randint(0, HOST_COUNT_PER_SWITCH);
+	for j in range(host_count_in_switch):
+		host_count += 1;
+		h = net.addHost('h' + str(host_count), ip = INT2IP(iter_ip));
+		switch_host_list[i].append(h);
+		host_list.append(h);
+		iter_ip += 1;
 
 # Create Switch - Switch Links
 info('*** Creating Switch - Switch Links\n');
@@ -90,13 +95,49 @@ elif TOPOLOGY_TYPE == 3:
             switch_switch_link_list.append(net.addLink(switch_list[i], switch_list[j], cls = TCLink, Intf = TCIntf, fast = False));
 elif TOPOLOGY_TYPE == 4:
     pass; # Nothing to do with 1 Switch :V
+elif TOPOLOGY_TYPE == 5:
+	neighbor = {};
+	for i in range(SWITCH_COUNT - 1):
+		if neighbor.has_key(switch_list[i]) == False:
+			neighbor[switch_list[i]] = set();
+		for j in range(i + 1, SWITCH_COUNT):
+			if neighbor.has_key(switch_list[j]) == False:
+				neighbor[switch_list[j]] = set();
+			if bool(random.getrandbits(1)) == True:
+				switch_switch_link_list.append(net.addLink(switch_list[i], switch_list[j], cls = TCLink, Intf = TCIntf, fast = False));
+				neighbor[switch_list[i]].add(switch_list[j]);
+				neighbor[switch_list[j]].add(switch_list[i]);
+	conn_comp_list = [];
+	switch_set = set(switch_list);
+	while switch_set:
+		sw = switch_set.pop();
+		group_set = {sw};
+		queue_list = [sw];
+		while queue_list:
+			sw = queue_list.pop(0);
+			neighbor_set = neighbor[sw];
+			neighbor_set.difference_update(group_set);
+			switch_set.difference_update(neighbor_set);
+			group_set.update(neighbor_set);
+			queue_list.extend(neighbor_set);
+		conn_comp_list.append(group_set);
+	# for i in range(len(conn_comp_list)):
+	# 	info("Component #" + str(i + 1) + ": ");
+	# 	jlist = list(conn_comp_list[i]);
+	# 	for j in range(len(jlist)):
+	# 		info(jlist[j].name + ", ");
+	# 	print("\n");
+	for i in range(len(conn_comp_list) - 1):
+		rand_comp_item1 = random.sample(conn_comp_list[i], 1)[0];
+		rand_comp_item2 = random.sample(conn_comp_list[i + 1], 1)[0];
+		switch_switch_link_list.append(net.addLink(rand_comp_item1, rand_comp_item2, cls = TCLink, Intf = TCIntf, fast = False));
 
 # Create Switch - Host Links
 info('*** Creating Switch - Host Links\n');
 switch_host_link_list = [];
 for i in range(SWITCH_COUNT):
 	switch_host_link_list.append([]);
-	for j in range(HOST_COUNT_PER_SWITCH):
+	for j in range(len(switch_host_list[i])):
 		switch_host_link_list[i].append(net.addLink(switch_list[i], switch_host_list[i][j], cls = TCLink, Intf = TCIntf, fast = False));
 
 # Start Network
@@ -107,6 +148,8 @@ net.start();
 info('********************\n');
 source_host = host_list[0];
 info('*** Source Host: ' + source_host.name + ' (' + source_host.IP(intf = source_host.defaultIntf()) + ')\n');
+if DESTINATION_COUNT > len(host_list) - 1:
+	DESTINATION_COUNT = len(host_list) - 1;
 dest_host_list = random.sample(host_list[1::], DESTINATION_COUNT);
 info('*** Destination Hosts: \n');
 for i in range(DESTINATION_COUNT):
@@ -114,6 +157,7 @@ for i in range(DESTINATION_COUNT):
 info('********************\n');
 
 # Configure Traffic Control on Switch - Switch Interfaces
+info('*** Configuring Traffic Control on Switch - Host Interfaces\n');
 if TOPOLOGY_TYPE != 4:
     info('*** Configuring Traffic Control on Switch - Switch Interfaces\n');
     setLogLevel('error');
@@ -126,14 +170,14 @@ if TOPOLOGY_TYPE != 4:
 info('*** Configuring Traffic Control on Switch - Host Interfaces\n');
 setLogLevel('error');
 for i in range(SWITCH_COUNT):
-	for j in range(HOST_COUNT_PER_SWITCH):
+	for j in range(len(switch_host_link_list[i])):
 		switch_host_link_list[i][j].intf1.config(bw = HOST_LINK_SPEED);
 		switch_host_link_list[i][j].intf2.config(bw = HOST_LINK_SPEED);
 setLogLevel('info');
 
 # Configure Host Default Routes
 info('*** Configuring Host Default Routes\n');
-for i in range(SWITCH_COUNT * HOST_COUNT_PER_SWITCH):
+for i in range(len(host_list)):
     host_list[i].setDefaultRoute(host_list[i].defaultIntf());
 
 def STREAM(STREAM_SRC):
@@ -159,11 +203,21 @@ def STREAM(STREAM_SRC):
 	makedirs_s(REC_DIR);
 
 	# Draw Frame# Source Video
-	info('\n*** Drawing FPS . . . ');
+	info('\n*** Drawing Frames . . . ');
 	source_host.cmd('ffmpeg -i \'' + STREAM_SRC + '\' '
 					'-vf \'drawtext=fontfile=Arial.ttf: text=%{n}: x=0: y=0: fontcolor=white: box=1: boxcolor=0x00000099\' '
 					'-y \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\' '
 					'> \'' + LOGS_DIR + os.path.sep + 'ffmpeg_drawtext' +'.log\' 2>&1');
+
+	# Calculate Source Frame Count
+	info('\n*** Calculating Source Frame Count . . . ');
+	try:
+		frame_count_source = long(source_host.cmd(	'ffprobe -v error -count_frames -select_streams v:0 -show_entries '
+													'stream=nb_read_frames -of default=nokey=1:noprint_wrappers=1 '
+													'-i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\''));
+	except ValueError:
+		info('\n*** Error: Reading Source Frames Failed!');
+		return;
 
 	# Generate SDP
 	info('\n*** Generating SDP . . . ');
@@ -187,10 +241,10 @@ def STREAM(STREAM_SRC):
 
 	# Start Noise
 	info('\n*** Starting Noise . . . ');
-	for i in range(1, SWITCH_COUNT * HOST_COUNT_PER_SWITCH):
+	for i in range(1, len(host_list)):
 		if host_list[i] not in dest_host_list:
-			host_list[i].cmd(	'cd \'' + TARGET_DIR + '\' && '
-								'java -jar \'NoiseUDP.jar\' \'' + str(NOISE_PORT) + '\' \'' + str(NOISE_PACKET_PAYLOAD_SIZE) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
+			host_list[i].cmd(	'cd \'' + BASE_DIR + '\' && '
+								'python \'Noise_UDP.py\' \'' + str(NOISE_PORT) + '\' \'' + str(NOISE_PACKET_PAYLOAD_SIZE) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
 								'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp' + '.log\' 2>&1 &');
 
 	# Wait for 10 Seconds
@@ -228,16 +282,153 @@ def STREAM(STREAM_SRC):
 	for thread_record in thread_record_list:
 		thread_record.join();
 	info('\n*** Recording Completed . . . ');
+	time.sleep(1);
 
-	# Calculate PSNR for each Recording
-	info('\n*** Calculating PSNR . . . ');
+	# Process PSNR for each Recording
+	info('\n*** Processing PSNR Results . . . ');
+	time.sleep(1);
+	# rec_frame_list = [];
+	# rec_mseavg_list = [];
+	rec_avg_psnr_list = [];
+	frame_count_dest = [];
 	for i in range(DESTINATION_COUNT):
 		dest_host_list[i].cmd(	'ffmpeg -i \'' + REC_DIR + os.path.sep + 'recording_' + str(i) + '.ts\' '
 								'-vf \"movie=\'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\', psnr=stats_file=\'' + PSNR_DIR + os.path.sep + 'rec_' + str(i) + '_psnr.txt\'\" '
 								'-f rawvideo -y /dev/null '
 								'> \'' + LOGS_DIR + os.path.sep + 'rec_' + str(i) + '_psnr' + '.log\' 2>&1');
-
-	info('\n*** Streaming Successfully Completed! ');
+		time.sleep(1);
+		try:
+			with open(PSNR_DIR + os.path.sep + 'rec_' + str(i) + '_psnr.txt', 'r') as f:
+				pass;
+		except IOError:
+			with open(PSNR_DIR + os.path.sep + 'rec_' + str(i) + '_psnr.txt', 'w') as f:
+				pass;
+		with open(PSNR_DIR + os.path.sep + 'rec_' + str(i) + '_psnr.txt', 'r+') as f:
+			content = f.readlines();
+			# frame_list = [];
+			# mseavg_list = [];
+			avg_mseavg = 0;
+			frame_count = 0;
+			for line in content:
+				text = line.split(' ');
+				# try:
+				# 	frame = long(text[0].split(':')[1]);
+				# except ValueError:
+				# 	continue;
+				frame_count += 1;
+				try:
+					mseavg = float(text[1].split(':')[1]);
+				except ValueError:
+					mseavg = sys.float_info.max;
+				# frame_list.append(frame);
+				# mseavg_list.append(mseavg);
+				avg_mseavg += mseavg;
+			# rec_frame_list.append(frame_list);
+			# rec_mseavg_list.append(mseavg_list);
+			if frame_count == 0:
+				mseavg = sys.float_info.max;
+			else:
+				avg_mseavg = avg_mseavg / frame_count;
+			if avg_mseavg == 0:
+				avg_psnr = float('inf'); # Make sure to not use this value for calculation anywhere!
+			else:
+				avg_psnr = 10 * math.log10(255 * 255 / avg_mseavg);	# Assuming BitDepth is fixed at 8-bit
+			rec_avg_psnr_list.append(avg_psnr);
+			frame_count_dest.append(frame_count);
+		
+	# Process Packets Send/Received
+	info('\n*** Processing PCAP Results . . . ');
+	time.sleep(1);
+	try:
+		packets_sent = int(source_host.cmd(	'tshark -r \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\' '
+											'-q -z io,phs | sed -n \'7,7p\'  | cut -d \" \" -f 40'));
+	except ValueError:
+		packets_sent = -1; # error
+	packets_recv_list = [];
+	for i in range(DESTINATION_COUNT):
+		time.sleep(1);
+		try:
+			packets_recv = int(dest_host_list[i].cmd(	'tshark -r \'' + PCAP_DIR + os.path.sep + 'destination_host_' + str(i) + '.pcap\' '
+														'-q -z io,phs | sed -n \'7,7p\'  | cut -d \" \" -f 40'));
+		except ValueError:
+			packets_recv = -1; # error
+		packets_recv_list.append(packets_recv);
+	
+	# Retrieve Noise Rate
+	info('\n*** Retrieving Noise Rate . . . ');
+	time.sleep(1);
+	try:
+		with open(LOGS_DIR + os.path.sep + 'noise_udp' + '.log', 'r') as f:
+			pass;
+	except IOError:
+		with open(LOGS_DIR + os.path.sep + 'noise_udp' + '.log', 'w') as f:
+			pass;
+	with open(LOGS_DIR + os.path.sep + 'noise_udp' + '.log', 'r+') as f: 
+		content = f.readlines();
+		noise_rate = 0.0;
+		for line in content:
+			text = line.split(' ');
+			if text[0] == 'DATA_RATE':
+				try:
+					noise_rate = float(text[1]);
+				except ValueError:
+					noise_rate = -1;
+				break;
+	
+	# Create Report
+	info('\n*** Generating Report . . . ');
+	try:
+		with open(OUTPUT_DIR + os.path.sep + 'REPORT.csv', 'rb') as f:
+			pass;
+	except IOError:
+		with open(OUTPUT_DIR + os.path.sep + 'REPORT.csv', 'wb') as f:
+			pass;
+	with open(OUTPUT_DIR + os.path.sep + 'REPORT.csv', 'r+b') as csvfile:
+		fieldnames = [	'Topology',
+						'Switch#',
+						'Hosts#',
+						'Sources',
+						'Destinations',
+						'NoiseRate',
+						'FramesTx',
+						'FramesRx',
+						'PacketsTx',
+						'PacketsRx',
+						'avgPSNR'	];
+		writer = csv.DictWriter(csvfile, fieldnames = fieldnames);
+		writer.writeheader();
+		
+		#Create Field Value List
+		fieldvalue_list = []
+		fieldvalue_list.append([TOPOlOGY_LIST[TOPOLOGY_TYPE - 1]]); # Vertical Format 'Topology'
+		fieldvalue_list.append([len(switch_list)]); # Vertical Format 'Switches#'
+		fieldvalue_list.append([len(host_list)]); # Vertical Format 'Hosts#'
+		fieldvalue_list.append([0]); # Vertical Format 'Sources'
+		fieldvalue_list.append([range(DESTINATION_COUNT)]); # Vertical Format 'Destinations'
+		fieldvalue_list.append([noise_rate]); # Vertical Format 'NoiseRate'
+		fieldvalue_list.append([frame_count_source]); # Vertical Format 'FramesTx'
+		fieldvalue_list.append(frame_count_dest); # Vertical Format 'FramesRx'
+		fieldvalue_list.append([packets_sent]); # Vertical Format 'PacketsTx'
+		fieldvalue_list.append(packets_recv_list); # Vertical Format 'PacketsRx'
+		fieldvalue_list.append(rec_avg_psnr_list); # Vertical Format 'avgPSNR'
+		
+		# Horizonally Format Rows:
+		row_count = 0;
+		while True:
+			row = {};
+			for i in range(len(fieldnames)):
+				key = fieldnames[i];
+				if row_count < len(fieldvalue_list[i]):
+					row[key] = fieldvalue_list[i][row_count];
+			if bool(row) == False:
+				break;
+			writer.writerow(row);
+			row_count += 1;
+	
+	# Streaming Completed: Clean Residues
+	for i in range(DESTINATION_COUNT):
+		dest_host_list[i].cmd('ps | grep "python" | cut -d " " -f 2 | kill -9 ');
+	info('\n*** Streaming Completed! ');
 
 # Custom Class for CLI
 class CustomCLI(CLI):
