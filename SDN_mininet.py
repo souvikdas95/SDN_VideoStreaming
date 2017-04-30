@@ -267,7 +267,6 @@ def STREAM(STREAM_SRC):
 	time.sleep(max(5, DESTINATION_COUNT));
 
 	# Start Streamer
-	info('\n*** Starting Streamer . . . ');
 	stream_args =(	'ffmpeg -re -i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\' '
 					'-c copy -f rtp -y \'rtp://@' + INT2IP(STREAM_IP) + ':' + str(STREAM_PORT) + '\' '
 					'> \'' + LOGS_DIR + os.path.sep + 'streamer.log\' 2>&1');
@@ -275,10 +274,12 @@ def STREAM(STREAM_SRC):
 		_source_host.cmd(_stream_args);
 	thread_stream = threading.Thread(target=_stream, args=(source_host, stream_args));
 	thread_stream.start();
+	info('\n*** Streaming Started . . . ');
 
 	# Wait for Stream Completion
 	thread_stream.join();
 	info('\n*** Streaming Completed . . . ');
+	info('\n*** Waiting for Record Completion . . . ');
 	for thread_record in thread_record_list:
 		thread_record.join();
 	info('\n*** Recording Completed . . . ');
@@ -305,26 +306,16 @@ def STREAM(STREAM_SRC):
 				pass;
 		with open(PSNR_DIR + os.path.sep + 'rec_' + str(i) + '_psnr.txt', 'r+') as f:
 			content = f.readlines();
-			# frame_list = [];
-			# mseavg_list = [];
 			avg_mseavg = 0;
 			frame_count = 0;
 			for line in content:
 				text = line.split(' ');
-				# try:
-				# 	frame = long(text[0].split(':')[1]);
-				# except ValueError:
-				# 	continue;
 				frame_count += 1;
 				try:
 					mseavg = float(text[1].split(':')[1]);
 				except ValueError:
 					mseavg = sys.float_info.max;
-				# frame_list.append(frame);
-				# mseavg_list.append(mseavg);
 				avg_mseavg += mseavg;
-			# rec_frame_list.append(frame_list);
-			# rec_mseavg_list.append(mseavg_list);
 			if frame_count == 0:
 				mseavg = sys.float_info.max;
 			else:
@@ -340,16 +331,24 @@ def STREAM(STREAM_SRC):
 	info('\n*** Processing PCAP Results . . . ');
 	time.sleep(1);
 	try:
-		packets_sent = int(source_host.cmd(	'tshark -r \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\' '
-											'-q -z io,phs | sed -n \'7,7p\'  | cut -d \" \" -f 40'));
+		packets_sent = source_host.cmd(	'tshark -r \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\' '
+											'-q -z io,phs | sed -n \'7,7p\' | cut -d \" \" -f 40 | cut -d \":\" -f 2').split('\n');
+		if isinstance(packets_sent[0], int):
+			packets_sent = int(packets_sent[0]);
+		else:
+			packets_sent = int(packets_sent[1]);
 	except ValueError:
 		packets_sent = -1; # error
 	packets_recv_list = [];
 	for i in range(DESTINATION_COUNT):
 		time.sleep(1);
 		try:
-			packets_recv = int(dest_host_list[i].cmd(	'tshark -r \'' + PCAP_DIR + os.path.sep + 'destination_host_' + str(i) + '.pcap\' '
-														'-q -z io,phs | sed -n \'7,7p\'  | cut -d \" \" -f 40'));
+			packets_recv = dest_host_list[i].cmd(	'tshark -r \'' + PCAP_DIR + os.path.sep + 'destination_host_' + str(i) + '.pcap\' '
+														'-q -z io,phs | sed -n \'7,7p\' | cut -d \" \" -f 40 | cut -d \":\" -f 2').split('\n');
+			if isinstance(packets_recv[0], int):
+				packets_recv = int(packets_recv[0]);
+			else:
+				packets_recv = int(packets_recv[1]);
 		except ValueError:
 			packets_recv = -1; # error
 		packets_recv_list.append(packets_recv);
@@ -377,34 +376,37 @@ def STREAM(STREAM_SRC):
 	
 	# Create Report
 	info('\n*** Generating Report . . . ');
+	fieldnames = [	'ID',
+					'Topology',
+					'Switch#',
+					'Hosts#',
+					'Sources',
+					'Destinations',
+					'NoiseRate',
+					'FramesTx',
+					'FramesRx',
+					'PacketsTx',
+					'PacketsRx',
+					'avgPSNR'	];
 	try:
 		with open(OUTPUT_DIR + os.path.sep + 'REPORT.csv', 'rb') as f:
 			pass;
 	except IOError:
 		with open(OUTPUT_DIR + os.path.sep + 'REPORT.csv', 'wb') as f:
+			writer = csv.DictWriter(f, fieldnames = fieldnames);
+			writer.writeheader();
 			pass;
-	with open(OUTPUT_DIR + os.path.sep + 'REPORT.csv', 'r+b') as csvfile:
-		fieldnames = [	'Topology',
-						'Switch#',
-						'Hosts#',
-						'Sources',
-						'Destinations',
-						'NoiseRate',
-						'FramesTx',
-						'FramesRx',
-						'PacketsTx',
-						'PacketsRx',
-						'avgPSNR'	];
+	with open(OUTPUT_DIR + os.path.sep + 'REPORT.csv', 'a+b') as csvfile:
 		writer = csv.DictWriter(csvfile, fieldnames = fieldnames);
-		writer.writeheader();
 		
 		#Create Field Value List
 		fieldvalue_list = []
+		fieldvalue_list.append([V_NAME + '_v' + str(version)]);
 		fieldvalue_list.append([TOPOlOGY_LIST[TOPOLOGY_TYPE - 1]]); # Vertical Format 'Topology'
 		fieldvalue_list.append([len(switch_list)]); # Vertical Format 'Switches#'
 		fieldvalue_list.append([len(host_list)]); # Vertical Format 'Hosts#'
-		fieldvalue_list.append([0]); # Vertical Format 'Sources'
-		fieldvalue_list.append([range(DESTINATION_COUNT)]); # Vertical Format 'Destinations'
+		fieldvalue_list.append([source_host.name]); # Vertical Format 'Sources'
+		fieldvalue_list.append(dest_host_list); # Vertical Format 'Destinations'
 		fieldvalue_list.append([noise_rate]); # Vertical Format 'NoiseRate'
 		fieldvalue_list.append([frame_count_source]); # Vertical Format 'FramesTx'
 		fieldvalue_list.append(frame_count_dest); # Vertical Format 'FramesRx'
@@ -425,10 +427,20 @@ def STREAM(STREAM_SRC):
 			writer.writerow(row);
 			row_count += 1;
 	
-	# Streaming Completed: Clean Residues
-	for i in range(DESTINATION_COUNT):
-		dest_host_list[i].cmd('ps | grep "python" | cut -d " " -f 2 | kill -9 ');
-	info('\n*** Streaming Completed! ');
+	# Clean Residue Processes
+	info('\n*** Cleaning Residue Processes . . . ');
+	for i in range(len(host_list)):
+		ps = host_list[i].cmd('ps | grep -v \"bash\"').split('\n');
+		del ps[0];
+		for line in ps:
+			try:
+				pid = int(line.strip().split(' ')[0]);
+				host_list[i].cmd('kill -9 ' + str(pid));
+			except:
+				pass;
+	
+	# Finished
+	info('\n*** Finished.');
 
 # Custom Class for CLI
 class CustomCLI(CLI):
