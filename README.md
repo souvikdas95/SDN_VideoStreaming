@@ -1,154 +1,154 @@
 # SDN_VideoStreaming
 
-Testing Environment
+## Testing Environment
 
-  Server: Dell PowerEdge T630 Tower Server
-  Processor: Intel(R) Xeon(R) E5-2630 v3 (20M Cache, 2.40 Ghz, 8 GT/s Intel QPI)
-  Memory: 16 GB (DDR4 1866 MHz) out of 32 GB Total 
-  Storage: 16 GB Volatile RAM Disk Drive
-  OS: Ubuntu Desktop 16.04.2 64-bit
+	1. Server: Dell PowerEdge T630 Tower Server
+	2. Processor: Intel(R) Xeon(R) E5-2630 v3 (20M Cache, 2.40 Ghz, 8 GT/s Intel QPI)
+	3. Memory: 16 GB (DDR4 1866 MHz) out of 32 GB Total 
+	4. Storage: 16 GB Volatile RAM Disk Drive
+	5. OS: Ubuntu Desktop 16.04.2 64-bit
 
-Software Packages Used:
+## Software Packages Used:
 
-  Floodlight (v1.2)
-  Mininet (v2.2.0b2)
-  FFMpeg (v3.3)
-  Python (2.7)
-  Wireshark (2.2.6)
+	1. Floodlight (v1.2)
+	2. Mininet (v2.2.0b2)
+	3. FFMpeg (v3.3)
+	4. Python (2.7)
+	5. Wireshark (2.2.6)
 
-Project Setup:
+## Project Setup:
 
-  1. Install Floodlight from Scratch (Git Master)
-      See: https://floodlight.atlassian.net/wiki/display/floodlightcontroller/Installation+Guide
-  2. Install Mininet from Scratch (Git Master – Install Everything)
-      See: http://mininet.org/download/#option-2-native-installation-from-source
-  3. Install FFmpeg (Git Master)
-      a. Git clone git://source.ffmpeg.org/ffmpeg.git
-      b. See: https://trac.ffmpeg.org/wiki/CompilationGuide/Ubuntu
-      Note: 
-        i.	If FFMpeg fails to detect “x265” during installation, try compiling it manually or exclude
-        	it from the project (remove “--enable-libx265 \” from configuration commandline & rebuild) .
-        ii.	It’s suggested to install FFmpeg as “Root” user. If not installed as “root” user, locate the
-        	directory containing FFmpeg binaries (ffmpeg, ffprobe) and update “PATH” system variable with
-        	this/these by appending the required changes at the end of ~/.buildrc file. A System Reboot
-        	maybe required for that.
-        eg. If /home/<username>/bin is location of FFmpeg binaries:
-            > PATH=/home/<username>/bin:$PATH
-            > export PATH
-  5. Install Wireshark (Package)
-  6. (Optional) Install nLoad (Package) for Bandwidth Monitoring
+	1. Install Floodlight from Scratch (Git Master)
+		See: https://floodlight.atlassian.net/wiki/display/floodlightcontroller/Installation+Guide
+	2. Install Mininet from Scratch (Git Master – Install Everything)
+		See: http://mininet.org/download/#option-2-native-installation-from-source
+	3. Install FFmpeg (Git Master)
+		a. Git clone git://source.ffmpeg.org/ffmpeg.git
+		b. See: https://trac.ffmpeg.org/wiki/CompilationGuide/Ubuntu
+		Note: 
+			i.	If FFMpeg fails to detect “x265” during installation, try compiling it manually or exclude
+				it from the project (remove “--enable-libx265 \” from configuration commandline & rebuild) .
+			ii.	It’s suggested to install FFmpeg as “Root” user. If not installed as “root” user, locate the
+				directory containing FFmpeg binaries (ffmpeg, ffprobe) and update “PATH” system variable with
+				this/these by appending the required changes at the end of ~/.buildrc file. A System Reboot
+				maybe required for that.
+				eg. If /home/<username>/bin is location of FFmpeg binaries:
+					> PATH=/home/<username>/bin:$PATH
+					> export PATH
+	5. Install Wireshark (Package)
+	6. (Optional) Install nLoad (Package) for Bandwidth Monitoring
 
-Project Execution Instruction:
+## Project Execution Instruction:
 
-  1. Go to Base Directory (contains 'SDN_mininet.py', 'Noise_UDP.py', 'SDN_config.py')
-  2. Exec: '$python SDN_mininet.py'
-  3. Enter configuration parameters (Skip for default)
-  4. Exec: 'mininet> stream <path_to_video>'
-  5. View Results at 'output/RESULTS.csv'
+	1. Go to Base Directory (contains 'SDN_mininet.py', 'Noise_UDP.py', 'SDN_config.py')
+	2. Exec: '$python SDN_mininet.py'
+	3. Enter configuration parameters (Skip for default)
+	4. Exec: 'mininet> stream <path_to_video>'
+	5. View Results at 'output/RESULTS.csv'
 
-Mininet Script Configuration Parameters:
+## Mininet Script Configuration Parameters:
 
-  Fixed Parameters:
+#### Fixed Parameters:
   
-    # Maximum Transmission Unit (Bytes)
-    MTU = 1492
-    
-    # Protocol Overhead
-    # 18 (Ethernet) +
-    # 20 (IP) +
-    # 12 (IP-PseudoHeader) +
-    # 8 (UDP-Header) +
-    # 6 (Ethernet-Padding)
-    # = 52 Bytes
-    OVERHEAD = 52
-    
-  Variable Parameters:
-  
-    # Type of Topology
-    # 1. Bus
-    # 2. Ring
-    # 3. Mesh
-    # 4. Star
-    # 5. Random
-    # Note: Random doesn't have fixed no. of Hosts in the Network
-    TOPOLOGY_TYPE = 1 (Default)
+	# Maximum Transmission Unit (Bytes)
+	MTU = 1492
 
-    # No. of Switches in the entire Topology
-    SWITCH_COUNT = 4
+	# Protocol Overhead
+	# 18 (Ethernet) +
+	# 20 (IP) +
+	# 12 (IP-PseudoHeader) +
+	# 8 (UDP-Header) +
+	# 6 (Ethernet-Padding)
+	# = 52 Bytes
+	OVERHEAD = 52
 
-    # No. of Hosts per Switch in the Topology
-    # Note: For Random, this is the Max. Hosts per Switch (0 - Minimum)
-    HOST_COUNT_PER_SWITCH = 2
+#### Variable Parameters:
 
-    # No. of Stream Recorders/Destinations in the Topology
-    # Note: In case of Random, if it exceeds allocated hosts, all other than
-    # source host becomes Stream Recorder/Destination
-    DESTINATION_COUNT = 1
+	# Type of Topology
+	# 1. Bus
+	# 2. Ring
+	# 3. Mesh
+	# 4. Star
+	# 5. Random
+	# Note: Random doesn't have fixed no. of Hosts in the Network
+	TOPOLOGY_TYPE = 1 (Default)
 
-    # Link/Interface Speed Requirement for each Host Node (QoS)
-    # Range: 1 - 1000 (Mbps)
-    HOST_LINK_SPEED = 1
+	# No. of Switches in the entire Topology
+	SWITCH_COUNT = 4
 
-    # Link/Interface Speed Requirement for each Switch Node (QoS)
-    # Range: 1 - 1000 (Mbps)
-    SWITCH_LINK_SPEED = 1
+	# No. of Hosts per Switch in the Topology
+	# Note: For Random, this is the Max. Hosts per Switch (0 - Minimum)
+	HOST_COUNT_PER_SWITCH = 2
 
-    # IP Address (Must be Multicast) for Streaming by Host
-    STREAM_IP = 234.0.0.1
+	# No. of Stream Recorders/Destinations in the Topology
+	# Note: In case of Random, if it exceeds allocated hosts, all other than
+	# source host becomes Stream Recorder/Destination
+	DESTINATION_COUNT = 1
 
-    # Port (Must be Ephimeral) for Streaming by Host
-    STREAM_PORT = 5555
+	# Link/Interface Speed Requirement for each Host Node (QoS)
+	# Range: 1 - 1000 (Mbps)
+	HOST_LINK_SPEED = 1
 
-    # Port (Must be Ephimeral) for Noise Generated in the Network
-    # Noise is generated by all hosts which are niether Source nor
-    # Destination in Streaming
-    NOISE_PORT = 65535
+	# Link/Interface Speed Requirement for each Switch Node (QoS)
+	# Range: 1 - 1000 (Mbps)
+	SWITCH_LINK_SPEED = 1
 
-    # Noise Data Rate (in bps) per Host
-    NOISE_DATA_RATE = 32768
+	# IP Address (Must be Multicast) for Streaming by Host
+	STREAM_IP = 234.0.0.1
 
-Project Description:
+	# Port (Must be Ephimeral) for Streaming by Host
+	STREAM_PORT = 5555
 
-  Floodlight is an Open Source SDN Controller, compatible to be used by Mininet, an Open Source 
-  Virtual Network Emulator. OVSSwitch provides the necessary toolset for Switching functionality 
-  in SDN to Mininet. Since the emergence of Netoworking as a functionality for connecting People 
-  across the world, we have only observed patented standards for configuration of networks by some 
-  of the most prestigious companies in the networking industry, namely Cisco & Juniper. For instance, 
-  Cisco uses IOS as the underlying OS for almost all of the hardwares that it's built so far. It 
-  has pre-defined RFC Standards for R&S which means, we can't alter the algorithms they use, or 
-  make out-of-the-box changes to adapt to our envisioned network requirements. For ages, we have 
-  seen network administrators going on sacrificing and compromising optimalitity in their networks 
-  with sub-optimal and fixed solutions of these companies. However, with the emergence of SDN, we 
-  have near to Full Control over our network's working, using the same backbone architectures that 
-  we've been using but with added functionality of customizability. In our case, OVSSwitch & Floodlight 
-  together do that job for R&D Purpose. 
-  With a simple Multicast Routing Algorithm implemented over fundamental SDN implementation, we are 
-  trying to test the feasability of the network by using Video Streaming as the sole application. Why 
-  Video Streaming? It involves Realtime sampling & packeting, QoS specifications, Realtime Media 
-  Controlling functionality and most importantly, can't afford large packet losses. All of these
-  can be provided by RTP (W/ RTCP) which is an application layer protocol using UDP as the underlying 
-  payload container, made solely for Realtime Communications (Audio/Visual). It supports Multi-party 
-  Communications & Conferences as well. Applications made over this protocol, also have the provisioning 
-  for Error Prevention & Concealment, alongside Timestamping and Sequencing, which together helps in 
-  smooth playback irrespective of adverse network conditions like Broadcast Noise. In our case, we are 
-  using FFmpeg's inbuild functionality for RTP (PT96) Streaming & Recording over Multicast Network. In 
-  the background, we have initiated a simple 'Broadcast Noise' contributed by the hosts in the network, 
-  to deploy scalable traffic in the network. QoS implementation by Mininet on the other hand, helps in 
-  balancing out this traffic. By analyzing the frames & the packets, we are able to produce mapping of 
-  sent and receive quality in SDN. By applying that over Multicast Networks, we are able to test the 
-  susceptibility of the network in Multicasting Environments.
+	# Port (Must be Ephimeral) for Noise Generated in the Network
+	# Noise is generated by all hosts which are niether Source nor
+	# Destination in Streaming
+	NOISE_PORT = 65535
 
-Previously Used/Tested Software Packages/Scripts (See: old/):
+	# Noise Data Rate (in bps) per Host
+	NOISE_DATA_RATE = 32768
 
-  1. LibVLC (from VideoLAN – Native VLC Player Library)
-  	 This library has no video processing/post-processing logging and control. Also, the binary is produced as a single package without any customizability or addon feature.
-  2. Vlcj Java API
-  	 This API is not VideoLAN proprietary and so, isn’t suitable for R&D purpose.
-  3. Apache Ant, Maven with Maven Ant Tasks
-  	 Use of Maven Ant Tasks is depricated. This was one of the reasons, why we planned to remove Java as dependency from Mininet’s script. Note: Floodlight still requires JDK with Apache Ant.
-  4. NoiseUDP (C/Java), StreamVLC (Java), RecordVLC (Java), PlayVLC (Java)
+## Project Description:
 
-Noise Calculation Theory:
+	Floodlight is an Open Source SDN Controller, compatible to be used by Mininet, an Open Source 
+	Virtual Network Emulator. OVSSwitch provides the necessary toolset for Switching functionality 
+	in SDN to Mininet. Since the emergence of Netoworking as a functionality for connecting People 
+	across the world, we have only observed patented standards for configuration of networks by some 
+	of the most prestigious companies in the networking industry, namely Cisco & Juniper. For instance, 
+	Cisco uses IOS as the underlying OS for almost all of the hardwares that it's built so far. It 
+	has pre-defined RFC Standards for R&S which means, we can't alter the algorithms they use, or 
+	make out-of-the-box changes to adapt to our envisioned network requirements. For ages, we have 
+	seen network administrators going on sacrificing and compromising optimalitity in their networks 
+	with sub-optimal and fixed solutions of these companies. However, with the emergence of SDN, we 
+	have near to Full Control over our network's working, using the same backbone architectures that 
+	we've been using but with added functionality of customizability. In our case, OVSSwitch & Floodlight 
+	together do that job for R&D Purpose. 
+	With a simple Multicast Routing Algorithm implemented over fundamental SDN implementation, we are 
+	trying to test the feasability of the network by using Video Streaming as the sole application. Why 
+	Video Streaming? It involves Realtime sampling & packeting, QoS specifications, Realtime Media 
+	Controlling functionality and most importantly, can't afford large packet losses. All of these
+	can be provided by RTP (W/ RTCP) which is an application layer protocol using UDP as the underlying 
+	payload container, made solely for Realtime Communications (Audio/Visual). It supports Multi-party 
+	Communications & Conferences as well. Applications made over this protocol, also have the provisioning 
+	for Error Prevention & Concealment, alongside Timestamping and Sequencing, which together helps in 
+	smooth playback irrespective of adverse network conditions like Broadcast Noise. In our case, we are 
+	using FFmpeg's inbuild functionality for RTP (PT96) Streaming & Recording over Multicast Network. In 
+	the background, we have initiated a simple 'Broadcast Noise' contributed by the hosts in the network, 
+	to deploy scalable traffic in the network. QoS implementation by Mininet on the other hand, helps in 
+	balancing out this traffic. By analyzing the frames & the packets, we are able to produce mapping of 
+	sent and receive quality in SDN. By applying that over Multicast Networks, we are able to test the 
+	susceptibility of the network in Multicasting Environments.
+
+## Previously Used/Tested Software Packages/Scripts (See: old/):
+
+	1. LibVLC (from VideoLAN – Native VLC Player Library)
+	 This library has no video processing/post-processing logging and control. Also, the binary is produced as a single package without any customizability or addon feature.
+	2. Vlcj Java API
+	 This API is not VideoLAN proprietary and so, isn’t suitable for R&D purpose.
+	3. Apache Ant, Maven with Maven Ant Tasks
+	 Use of Maven Ant Tasks is depricated. This was one of the reasons, why we planned to remove Java as dependency from Mininet’s script. Note: Floodlight still requires JDK with Apache Ant.
+	4. NoiseUDP (C/Java), StreamVLC (Java), RecordVLC (Java), PlayVLC (Java)
+
+## Noise Calculation Theory:
 
 	Annotations:
 		t = Delay b/w Packets (Milliseconds)
