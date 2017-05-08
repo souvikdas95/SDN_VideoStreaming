@@ -157,7 +157,6 @@ for i in range(DESTINATION_COUNT):
 info('********************\n');
 
 # Configure Traffic Control on Switch - Switch Interfaces
-info('*** Configuring Traffic Control on Switch - Host Interfaces\n');
 if TOPOLOGY_TYPE != 4:
     info('*** Configuring Traffic Control on Switch - Switch Interfaces\n');
     setLogLevel('error');
@@ -247,9 +246,9 @@ def STREAM(STREAM_SRC):
 								'python \'Noise_UDP.py\' \'' + str(NOISE_PORT) + '\' \'' + str(NOISE_PACKET_PAYLOAD_SIZE) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
 								'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp' + '.log\' 2>&1 &');
 
-	# Wait for 10 Seconds
-	info('\n*** Wait 10 Seconds for Network to Settle . . . ');
-	time.sleep(10);
+	# Wait for 15 Seconds
+	info('\n*** Wait 15 Seconds for Network to Settle . . . ');
+	time.sleep(15);
 
 	# Prepare Stream Recorders
 	info('\n*** Preparing Stream Recorders . . . ');
@@ -333,10 +332,10 @@ def STREAM(STREAM_SRC):
 	try:
 		packets_sent = source_host.cmd(	'tshark -r \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\' '
 											'-q -z io,phs | sed -n \'7,7p\' | cut -d \" \" -f 40 | cut -d \":\" -f 2').split('\n');
-		if isinstance(packets_sent[0], int):
-			packets_sent = int(packets_sent[0]);
+		if isinstance(packets_sent[-1], int):
+			packets_sent = int(packets_sent[-1]);
 		else:
-			packets_sent = int(packets_sent[1]);
+			packets_sent = int(packets_sent[-2]);
 	except ValueError:
 		packets_sent = -1; # error
 	packets_recv_list = [];
@@ -345,10 +344,10 @@ def STREAM(STREAM_SRC):
 		try:
 			packets_recv = dest_host_list[i].cmd(	'tshark -r \'' + PCAP_DIR + os.path.sep + 'destination_host_' + str(i) + '.pcap\' '
 														'-q -z io,phs | sed -n \'7,7p\' | cut -d \" \" -f 40 | cut -d \":\" -f 2').split('\n');
-			if isinstance(packets_recv[0], int):
-				packets_recv = int(packets_recv[0]);
+			if isinstance(packets_recv[-1], int):
+				packets_recv = int(packets_recv[-1]);
 			else:
-				packets_recv = int(packets_recv[1]);
+				packets_recv = int(packets_recv[-2]);
 		except ValueError:
 			packets_recv = -1; # error
 		packets_recv_list.append(packets_recv);

@@ -4,8 +4,8 @@
 
 	1. Server: Dell PowerEdge T630 Tower Server
 	2. Processor: Intel(R) Xeon(R) E5-2630 v3 (20M Cache, 2.40 Ghz, 8 GT/s Intel QPI)
-	3. Memory: 16 GB (DDR4 1866 MHz) out of 32 GB Total 
-	4. Storage: 16 GB Volatile RAM Disk Drive
+	3. Memory: 12 GB (DDR4 2100 MHz) out of 32 GB Total 
+	4. Storage: 16 GB Volatile RAM Disk Drive Volume (NTFS) enclosing VMDK
 	5. OS: Ubuntu Desktop 16.04.2 64-bit
 
 ## Software Packages Used:
@@ -25,6 +25,7 @@
 	3. Install FFmpeg (Git Master)
 		a. Git clone git://source.ffmpeg.org/ffmpeg.git
 		b. See: https://trac.ffmpeg.org/wiki/CompilationGuide/Ubuntu
+		c. (Important!) Add "--enable-libfontconfig" to FFmpeg Configure
 		Note: 
 			i.	If FFMpeg fails to detect “x265” during installation, try compiling it manually or exclude
 				it from the project (remove “--enable-libx265 \” from configuration commandline & rebuild) .
