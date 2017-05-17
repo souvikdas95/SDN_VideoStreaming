@@ -4,8 +4,8 @@
 
 	1. Server: Dell PowerEdge T630 Tower Server
 	2. Processor: Intel(R) Xeon(R) E5-2630 v3 (20M Cache, 2.40 Ghz, 8 GT/s Intel QPI)
-	3. Memory: 12 GB (DDR4 2100 MHz) out of 32 GB Total 
-	4. Storage: 16 GB Volatile RAM Disk Drive Volume (NTFS) enclosing VMDK
+	3. Memory: 16 GB (NUMA #1) out of 32 GB Total (DDR4 2100 MHz)
+	4. Storage: 16 GB (NUMA #0) Volatile RAM Disk Drive Volume (NTFS) enclosing VMDK
 	5. OS: Ubuntu Desktop 16.04.2 64-bit
 
 ## Software Packages Used:
@@ -13,8 +13,8 @@
 	1. Floodlight (v1.2)
 	2. Mininet (v2.2.0b2)
 	3. FFMpeg (v3.3)
-	4. Python (2.7)
-	5. Wireshark (2.2.6)
+	4. Python (v2.7)
+	5. Wireshark (v2.2.6)
 
 ## Project Setup:
 
@@ -31,7 +31,7 @@
 				it from the project (remove “--enable-libx265 \” from configuration commandline & rebuild) .
 			ii.	It’s suggested to install FFmpeg as “Root” user. If not installed as “root” user, locate the
 				directory containing FFmpeg binaries (ffmpeg, ffprobe) and update “PATH” system variable with
-				this/these by appending the required changes at the end of ~/.buildrc file. A System Reboot
+				this/these by appending the required changes at the end of ~/.bashrc file. A System Reboot
 				maybe required for that.
 				eg. If /home/<username>/bin is location of FFmpeg binaries:
 					> PATH=/home/<username>/bin:$PATH
@@ -80,6 +80,11 @@
 	# No. of Hosts per Switch in the Topology
 	# Note: For Random, this is the Max. Hosts per Switch (0 - Minimum)
 	HOST_COUNT_PER_SWITCH = 2
+
+	# Enable STP at Switch
+	# Note: May be required in case of sophisticated topology
+	# Note: Helps prevent broadcast storms
+	USE_STP = False
 
 	# No. of Stream Recorders/Destinations in the Topology
 	# Note: In case of Random, if it exceeds allocated hosts, all other than

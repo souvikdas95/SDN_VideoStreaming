@@ -60,7 +60,9 @@ switch_list = [];
 switch_count = 0;
 for i in range(SWITCH_COUNT):
     switch_count += 1;
-    switch_list.append(net.addSwitch('s' + str(switch_count), cls = OVSSwitch, protocols = 'OpenFlow13', inband = False));
+    switch_list.append(net.addSwitch('s' + str(switch_count), cls = OVSSwitch, protocols = 'OpenFlow13', inband = False,
+    					failMode = 'standalone' if (USE_STP == True) else 'secure',
+    					stp = USE_STP));
 
 # Create Hosts
 info('*** Creating hosts\n');
@@ -316,13 +318,14 @@ def STREAM(STREAM_SRC):
 					mseavg = sys.float_info.max;
 				avg_mseavg += mseavg;
 			if frame_count == 0:
-				mseavg = sys.float_info.max;
+				avg_mseavg = sys.float_info.max;
+				avg_psnr = 0.0;
 			else:
 				avg_mseavg = avg_mseavg / frame_count;
-			if avg_mseavg == 0:
-				avg_psnr = float('inf'); # Make sure to not use this value for calculation anywhere!
-			else:
-				avg_psnr = 10 * math.log10(255 * 255 / avg_mseavg);	# Assuming BitDepth is fixed at 8-bit
+				if avg_mseavg == 0:
+					avg_psnr = float('inf'); # Make sure to not use this value for calculation anywhere!
+				else:
+					avg_psnr = 10 * math.log10(255 * 255 / avg_mseavg);	# Assuming BitDepth is fixed at 8-bit
 			rec_avg_psnr_list.append(avg_psnr);
 			frame_count_dest.append(frame_count);
 		
@@ -379,6 +382,8 @@ def STREAM(STREAM_SRC):
 					'Topology',
 					'Switch#',
 					'Hosts#',
+					'Sw-Sw LinkSpeed',
+					'Sw-Host LinkSpeed',
 					'Sources',
 					'Destinations',
 					'NoiseRate',
@@ -404,6 +409,8 @@ def STREAM(STREAM_SRC):
 		fieldvalue_list.append([TOPOlOGY_LIST[TOPOLOGY_TYPE - 1]]); # Vertical Format 'Topology'
 		fieldvalue_list.append([len(switch_list)]); # Vertical Format 'Switches#'
 		fieldvalue_list.append([len(host_list)]); # Vertical Format 'Hosts#'
+		fieldvalue_list.append([SWITCH_LINK_SPEED]); # Vertical Format 'Switch-Switch Link Speed'
+		fieldvalue_list.append([HOST_LINK_SPEED]); # Vertical Format 'Switch-Host Link Speed'
 		fieldvalue_list.append([source_host.name]); # Vertical Format 'Sources'
 		fieldvalue_list.append(dest_host_list); # Vertical Format 'Destinations'
 		fieldvalue_list.append([noise_rate]); # Vertical Format 'NoiseRate'

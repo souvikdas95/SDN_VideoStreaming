@@ -20,6 +20,7 @@ OVERHEAD = 52;  # Protocol Overhead (18 (Ethernet) + 20 (IP) + 12 (IP-PseudoHead
 TOPOLOGY_TYPE = 1;
 SWITCH_COUNT = 4;
 HOST_COUNT_PER_SWITCH = 2;
+USE_STP = False;
 DESTINATION_COUNT = 1;
 HOST_LINK_SPEED = 1;
 SWITCH_LINK_SPEED = 1;
@@ -151,6 +152,16 @@ elif TOPOLOGY_TYPE == 5:
             continue;
         break;
 while True:
+	try:
+		temp = str.upper(raw_input('Enable STP (T/F): ') or str(USE_STP)[0]);
+		if temp not in ['T', 'F']:
+			continue;
+	except:
+		info ('*** Error: Invalid Input\n');
+		continue;
+	USE_STP = (temp == 'T');
+	break;
+while True:
     try:
         MAX_DESTINATION_COUNT = SWITCH_COUNT * HOST_COUNT_PER_SWITCH - 1;
         DESTINATION_COUNT = int(raw_input('Enter number of destinations (>= 1 & <= ' + str(MAX_DESTINATION_COUNT) + '): ') or str(DESTINATION_COUNT));
@@ -163,7 +174,7 @@ while True:
     break;
 while True:
     try:
-        SWITCH_LINK_SPEED = int(raw_input('Enter switch link speed (>= 1 & <= 1000): ') or str(SWITCH_LINK_SPEED));
+        SWITCH_LINK_SPEED = int(raw_input('Enter switch-switch link speed (>= 1 & <= 1000) (in Mbps): ') or str(SWITCH_LINK_SPEED));
     except ValueError:
         info ('*** Error: Invalid Input\n');
         continue;
@@ -173,7 +184,7 @@ while True:
     break;
 while True:
     try:
-        HOST_LINK_SPEED = int(raw_input('Enter host link speed (>= 1 & <= 1000) (in Mbps): ') or str(HOST_LINK_SPEED));
+        HOST_LINK_SPEED = int(raw_input('Enter host-switch link speed (>= 1 & <= 1000) (in Mbps): ') or str(HOST_LINK_SPEED));
     except ValueError:
         info ('*** Error: Invalid Input\n');
         continue;
