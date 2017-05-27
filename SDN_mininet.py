@@ -25,6 +25,7 @@ def makedirs_s(s):
 # makedirs_s(TARGET_DIR);
 OUTPUT_DIR = BASE_DIR + os.path.sep + 'output';
 makedirs_s(OUTPUT_DIR);
+SAP_DIR = BASE_DIR + os.path.sep + 'SAP';
 
 # Mininet Imports
 from mininet.net import Mininet;
@@ -41,6 +42,22 @@ from mininet.clean import Cleanup;
 
 # Import Configuration
 from SDN_config import *;
+
+# IP-INT conversion methods
+IP2INT = lambda ipstr: struct.unpack('!I', socket.inet_aton(ipstr))[0]; 	# IP Address to Integer
+INT2IP = lambda n: socket.inet_ntoa(struct.pack('!I', n));              	# Integer to IP Address
+
+# Stream Default Configuration
+MTU = 1492; # Maximum Transmission Unit (Bytes)
+OVERHEAD = 52;  # Protocol Overhead (18 (Ethernet) + 20 (IP) + 12 (IP-PseudoHeader) + 8 (UDP-Header) + 6 (Ethernet-Padding) = 52 Bytes)
+DESTINATION_COUNT = 1;
+STREAM_IP = '234.0.0.1';
+STREAM_PORT = 5555;
+NOISE_PORT = 65535;
+NOISE_DATA_RATE = 32 * 1024;
+NOISE_PACKET_DELAY = float(8000 * MTU) / float(NOISE_DATA_RATE);
+SAP_PORT = 49160;
+NOISE_PACKET_PAYLOAD_SIZE = MTU - OVERHEAD;	# Ensure Full Utilization of Packet
 
 # Create Mininet Instance
 setLogLevel('info');
@@ -146,18 +163,6 @@ for i in range(SWITCH_COUNT):
 info('*** Starting Network\n');
 net.start();
 
-# Print Required Source Destination Information
-info('********************\n');
-source_host = host_list[0];
-info('*** Source Host: ' + source_host.name + ' (' + source_host.IP(intf = source_host.defaultIntf()) + ')\n');
-if DESTINATION_COUNT > len(host_list) - 1:
-	DESTINATION_COUNT = len(host_list) - 1;
-dest_host_list = random.sample(host_list[1::], DESTINATION_COUNT);
-info('*** Destination Hosts: \n');
-for i in range(DESTINATION_COUNT):
-    info('*** ' + dest_host_list[i].name + ' (' + dest_host_list[i].IP(intf = dest_host_list[i].defaultIntf()) + ')\n');
-info('********************\n');
-
 # Configure Traffic Control on Switch - Switch Interfaces
 if TOPOLOGY_TYPE != 4:
     info('*** Configuring Traffic Control on Switch - Switch Interfaces\n');
@@ -182,6 +187,36 @@ for i in range(len(host_list)):
     host_list[i].setDefaultRoute(host_list[i].defaultIntf());
 
 def STREAM(STREAM_SRC):
+	# Delay & Print
+	time.sleep(0.1);
+	sys.stdout.flush();
+	info('\n');
+	
+	# Global Declarations
+	global BASE_DIR;
+	global OUTPUT_DIR;
+	global SAP_DIR;
+	global DESTINATION_COUNT;
+	global STREAM_IP;
+	global STREAM_PORT;
+	global NOISE_PORT;
+	global NOISE_DATA_RATE;
+	global NOISE_PACKET_DELAY;
+	global SAP_PORT;
+	global NOISE_PACKET_PAYLOAD_SIZE;
+	
+	# Print Required Source Destination Information
+	info('\n********************\n');
+	source_host = host_list[0];
+	info('*** Source Host: ' + source_host.name + ' (' + source_host.IP(intf = source_host.defaultIntf()) + ')\n');
+	if DESTINATION_COUNT > len(host_list) - 1:
+		DESTINATION_COUNT = len(host_list) - 1;
+	dest_host_list = random.sample(host_list[1::], DESTINATION_COUNT);
+	info('*** Destination Hosts: \n');
+	for i in range(DESTINATION_COUNT):
+		info('*** ' + dest_host_list[i].name + ' (' + dest_host_list[i].IP(intf = dest_host_list[i].defaultIntf()) + ')\n');
+	info('********************\n');
+	
 	# Prepare Stream Output Directory
 	info('\n*** Preparing Stream Output Directories . . . ');
 	SOURCE_FILENAME = os.path.split(STREAM_SRC)[1];
@@ -202,6 +237,8 @@ def STREAM(STREAM_SRC):
 	makedirs_s(PSNR_DIR);
 	REC_DIR = STREAM_DESTDIR + os.path.sep + 'rec';
 	makedirs_s(REC_DIR);
+	SDP_DIR = STREAM_DESTDIR + os.path.sep + 'sdp';
+	makedirs_s(SDP_DIR);
 
 	# Draw Frame# Source Video
 	info('\n*** Drawing Frames . . . ');
@@ -224,8 +261,39 @@ def STREAM(STREAM_SRC):
 	info('\n*** Generating SDP . . . ');
 	source_host.cmd('ffmpeg -fflags +genpts -i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\' '
 					'-c copy -f rtp -y \'rtp://@' + INT2IP(STREAM_IP) + ':' + str(STREAM_PORT) + '\' '
-					'> \'' + STREAM_DESTDIR + os.path.sep + V_NAME + '.sdp\' '
+					'> \'' + SDP_DIR + os.path.sep + V_NAME + '_source.sdp\' '
 					'2> \'' + LOGS_DIR + os.path.sep + 'sdp.log\'');
+
+	# Initiate SAP
+	info('\n*** Initiating SAP . . . ');
+	source_host.cmd('cd \'' + SAP_DIR + '\' && '
+					'python SAP_server.py '
+					'\'' + source_host.IP(intf = source_host.defaultIntf()) + '\' '
+					'\'' + str(SAP_PORT) + '\' '
+					'\'' + SDP_DIR + os.path.sep + V_NAME + '_source.sdp\' '
+					'&> \'' + LOGS_DIR + os.path.sep + 'SAP_server.log\' 2>&1 &');
+	print('cd \'' + SAP_DIR + '\' && '
+						'python SAP_server.py '
+						'\'' + source_host.IP(intf = source_host.defaultIntf()) + '\' '
+						'\'' + str(SAP_PORT) + '\' '
+						'\'' + SDP_DIR + os.path.sep + V_NAME + '_source.sdp\' '
+						'&> \'' + LOGS_DIR + os.path.sep + 'SAP_server.log\' 2>&1 &');
+	sap_client_command_args_init = 	'cd \'' + SAP_DIR + '\' && python SAP_client.py ';
+	def _sap_client_command(_dest_host, _sap_client_command_args):
+		_dest_host.cmd(_sap_client_command_args);
+	thread_sap_client_list = [];
+	for i in range(DESTINATION_COUNT):
+		sap_client_command_args_end = (	'\'' + source_host.IP(intf = source_host.defaultIntf()) + '\' '
+										'\'' + str(SAP_PORT) + '\' '
+										'\'' + SDP_DIR + os.path.sep + V_NAME + '_destination_' + str(i) + '.sdp\' '
+										'> \'' + LOGS_DIR + os.path.sep + 'SAP_server.log\' 2>&1');
+		print(sap_client_command_args_init + sap_client_command_args_end);
+		t = threading.Thread(target=_sap_client_command, args=(dest_host_list[i], sap_client_command_args_init + sap_client_command_args_end));
+		t.start();
+		thread_sap_client_list.append(t);
+	for thread_sap_client in thread_sap_client_list:
+		thread_sap_client.join();
+	info('\n*** SAP Completed . . . ');
 
 	# Initialize Source Packet Capture
 	info('\n*** Initializing Source Packet Capture . . . ');
@@ -254,13 +322,13 @@ def STREAM(STREAM_SRC):
 
 	# Prepare Stream Recorders
 	info('\n*** Preparing Stream Recorders . . . ');
-	record_args_init =(	'ffmpeg -protocol_whitelist file,udp,rtcp,rtp '
-						'-i \'' + STREAM_DESTDIR + os.path.sep + V_NAME + '.sdp\' -c copy -y ');
+	record_args_init = 'ffmpeg -protocol_whitelist file,udp,rtcp,rtp ';
 	def _record(_dest_host, _record_args):
 		_dest_host.cmd(_record_args);
 	thread_record_list = [];
 	for i in range(DESTINATION_COUNT):
-		record_args_end =(	'\'' + REC_DIR + os.path.sep + 'recording_' + str(i) + '.ts\' '
+		record_args_end =(	'-i \'' + SDP_DIR + os.path.sep + V_NAME + '_destination_' + str(i) + '.sdp\' -c copy -y '
+							'\'' + REC_DIR + os.path.sep + 'recording_' + str(i) + '.ts\' '
 							'> \'' + LOGS_DIR + os.path.sep + 'recorder_' + str(i) + '.log\' 2>&1');
 		t = threading.Thread(target=_record, args=(dest_host_list[i], record_args_init + record_args_end));
 		t.start();
@@ -457,6 +525,79 @@ class CustomCLI(CLI):
 		else:
 			info('*** Invalid Path!\n');
 			return;
+		# Set Streaming Parameters
+		global DESTINATION_COUNT;
+		while True:
+			try:
+				MAX_DESTINATION_COUNT = SWITCH_COUNT * HOST_COUNT_PER_SWITCH - 1;
+				DESTINATION_COUNT = int(raw_input('Enter number of destinations (>= 1 & <= ' + str(MAX_DESTINATION_COUNT) + '): ') or str(DESTINATION_COUNT));
+			except ValueError:
+				info ('*** Error: Invalid Input\n');
+				continue;
+			if DESTINATION_COUNT < 1 or DESTINATION_COUNT > MAX_DESTINATION_COUNT:
+				info ('*** Error: Input out of range\n');
+				continue;
+			break;
+		global STREAM_IP;
+		while True:
+			try:
+				STREAM_IP = IP2INT(raw_input('Enter Mutlicast Source IP: ') or STREAM_IP);
+			except:
+				continue;
+			if STREAM_IP == 0:
+				info ('*** Error: Invalid Input\n');
+				continue;
+			IP_RANGE_MIN = IP2INT('224.0.0.1');
+			IP_RANGE_MAX = IP2INT('239.255.255.255');
+			if STREAM_IP < IP_RANGE_MIN or STREAM_IP > IP_RANGE_MAX:
+				info ('*** Error: Input out of range\n');
+				continue;
+			break;
+		global STREAM_PORT;
+		while True:
+			try:
+				STREAM_PORT = int(raw_input('Enter Mutlicast Source Port (>= 1024 & <= 65535): ') or str(STREAM_PORT));
+			except ValueError:
+				info ('*** Error: Invalid Input\n');
+				continue;
+			if STREAM_PORT < 1024 or STREAM_PORT > 65535:
+				info ('*** Error: Input out of range\n');
+				continue;
+			break;
+		global NOISE_PORT;
+		while True:
+			try:
+				NOISE_PORT = int(raw_input('Enter Noise Source Port (>= 1024 & <= 65535): ') or str(NOISE_PORT));
+			except ValueError:
+				info ('*** Error: Invalid Input\n');
+				continue;
+			if NOISE_PORT < 1024 or NOISE_PORT > 65535:
+				info ('*** Error: Input out of range\n');
+				continue;
+			break;
+		global NOISE_DATA_RATE;
+		while True:
+			try:
+				NOISE_DATA_RATE = int(raw_input('Enter Noise Data Rate (>= 1) (in bps): ') or str(NOISE_DATA_RATE));
+			except ValueError:
+				info ('*** Error: Invalid Input\n');
+				continue;
+			if NOISE_DATA_RATE < 1:
+				info ('*** Error: Input out of range\n');
+				continue;
+			break;
+		global SAP_PORT;
+		while True:
+			try:
+				SAP_PORT = int(raw_input('Enter SAP Source Port (>= 1024 & <= 65535): ') or str(SAP_PORT));
+			except ValueError:
+				info ('*** Error: Invalid Input\n');
+				continue;
+			if SAP_PORT < 1024 or SAP_PORT > 65535:
+				info ('*** Error: Input out of range\n');
+				continue;
+			break;
+		NOISE_PACKET_DELAY = float(8000 * MTU) / float(NOISE_DATA_RATE);
 		t = threading.Thread(target = STREAM, args = (arg, ));
 		t.start();
 
