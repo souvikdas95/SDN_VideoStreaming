@@ -272,12 +272,6 @@ def STREAM(STREAM_SRC):
 					'\'' + str(SAP_PORT) + '\' '
 					'\'' + SDP_DIR + os.path.sep + V_NAME + '_source.sdp\' '
 					'&> \'' + LOGS_DIR + os.path.sep + 'SAP_server.log\' 2>&1 &');
-	print('cd \'' + SAP_DIR + '\' && '
-						'python SAP_server.py '
-						'\'' + source_host.IP(intf = source_host.defaultIntf()) + '\' '
-						'\'' + str(SAP_PORT) + '\' '
-						'\'' + SDP_DIR + os.path.sep + V_NAME + '_source.sdp\' '
-						'&> \'' + LOGS_DIR + os.path.sep + 'SAP_server.log\' 2>&1 &');
 	sap_client_command_args_init = 	'cd \'' + SAP_DIR + '\' && python SAP_client.py ';
 	def _sap_client_command(_dest_host, _sap_client_command_args):
 		_dest_host.cmd(_sap_client_command_args);
@@ -287,7 +281,6 @@ def STREAM(STREAM_SRC):
 										'\'' + str(SAP_PORT) + '\' '
 										'\'' + SDP_DIR + os.path.sep + V_NAME + '_destination_' + str(i) + '.sdp\' '
 										'> \'' + LOGS_DIR + os.path.sep + 'SAP_server.log\' 2>&1');
-		print(sap_client_command_args_init + sap_client_command_args_end);
 		t = threading.Thread(target=_sap_client_command, args=(dest_host_list[i], sap_client_command_args_init + sap_client_command_args_end));
 		t.start();
 		thread_sap_client_list.append(t);
@@ -357,8 +350,6 @@ def STREAM(STREAM_SRC):
 	# Process PSNR for each Recording
 	info('\n*** Processing PSNR Results . . . ');
 	time.sleep(1);
-	# rec_frame_list = [];
-	# rec_mseavg_list = [];
 	rec_avg_psnr_list = [];
 	frame_count_dest = [];
 	for i in range(DESTINATION_COUNT):
@@ -525,8 +516,17 @@ class CustomCLI(CLI):
 		else:
 			info('*** Invalid Path!\n');
 			return;
-		# Set Streaming Parameters
+		
+		# Import Global Vars
 		global DESTINATION_COUNT;
+		global STREAM_IP;
+		global STREAM_PORT;
+		global NOISE_PORT;
+		global NOISE_DATA_RATE;
+		global SAP_PORT;
+		global NOISE_PACKET_DELAY;
+		
+		# Set Streaming Parameters
 		while True:
 			try:
 				MAX_DESTINATION_COUNT = SWITCH_COUNT * HOST_COUNT_PER_SWITCH - 1;
@@ -538,7 +538,6 @@ class CustomCLI(CLI):
 				info ('*** Error: Input out of range\n');
 				continue;
 			break;
-		global STREAM_IP;
 		while True:
 			try:
 				STREAM_IP = IP2INT(raw_input('Enter Mutlicast Source IP: ') or STREAM_IP);
@@ -553,7 +552,6 @@ class CustomCLI(CLI):
 				info ('*** Error: Input out of range\n');
 				continue;
 			break;
-		global STREAM_PORT;
 		while True:
 			try:
 				STREAM_PORT = int(raw_input('Enter Mutlicast Source Port (>= 1024 & <= 65535): ') or str(STREAM_PORT));
@@ -564,7 +562,6 @@ class CustomCLI(CLI):
 				info ('*** Error: Input out of range\n');
 				continue;
 			break;
-		global NOISE_PORT;
 		while True:
 			try:
 				NOISE_PORT = int(raw_input('Enter Noise Source Port (>= 1024 & <= 65535): ') or str(NOISE_PORT));
@@ -575,7 +572,7 @@ class CustomCLI(CLI):
 				info ('*** Error: Input out of range\n');
 				continue;
 			break;
-		global NOISE_DATA_RATE;
+		
 		while True:
 			try:
 				NOISE_DATA_RATE = int(raw_input('Enter Noise Data Rate (>= 1) (in bps): ') or str(NOISE_DATA_RATE));
@@ -586,7 +583,6 @@ class CustomCLI(CLI):
 				info ('*** Error: Input out of range\n');
 				continue;
 			break;
-		global SAP_PORT;
 		while True:
 			try:
 				SAP_PORT = int(raw_input('Enter SAP Source Port (>= 1024 & <= 65535): ') or str(SAP_PORT));
