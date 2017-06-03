@@ -259,11 +259,11 @@ def STREAM(STREAM_SRC):
 
 	# Generate SDP
 	info('\n*** Generating SDP . . . ');
-	source_host.cmd('ffmpeg -fflags +genpts -i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\' '
-					'-c copy -f rtp -y \'rtp://@' + INT2IP(STREAM_IP) + ':' + str(STREAM_PORT) + '\' '
-					'> \'' + SDP_DIR + os.path.sep + V_NAME + '_source.sdp\' '
-					'2> \'' + LOGS_DIR + os.path.sep + 'sdp.log\'');
-
+	source_host.cmd('ffmpeg -re -i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\' '
+					'-c copy -sdp_file \'' + SDP_DIR + os.path.sep + V_NAME + '_source.sdp\' -t 0 '
+					'-f rtp -y \'rtp://@' + INT2IP(STREAM_IP) + ':' + str(STREAM_PORT) + '\' '
+					'> \'' + LOGS_DIR + os.path.sep + 'sdp.log\' 2>&1');
+	
 	# Initiate SAP
 	info('\n*** Initiating SAP . . . ');
 	source_host.cmd('cd \'' + SAP_DIR + '\' && '
