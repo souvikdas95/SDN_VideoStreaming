@@ -51,7 +51,7 @@ INT2IP = lambda n: socket.inet_ntoa(struct.pack('!I', n));              	# Integ
 MTU = 1492; # Maximum Transmission Unit (Bytes)
 OVERHEAD = 52;  # Protocol Overhead (18 (Ethernet) + 20 (IP) + 12 (IP-PseudoHeader) + 8 (UDP-Header) + 6 (Ethernet-Padding) = 52 Bytes)
 DESTINATION_COUNT = 1;
-STREAM_IP = '234.0.0.1';
+STREAM_IP = IP2INT('234.0.0.1');
 STREAM_PORT = 5555;
 NOISE_PORT = 65535;
 NOISE_DATA_RATE = 32 * 1024;
@@ -540,7 +540,7 @@ class CustomCLI(CLI):
 			break;
 		while True:
 			try:
-				STREAM_IP = IP2INT(raw_input('Enter Mutlicast Source IP: ') or STREAM_IP);
+				STREAM_IP = IP2INT(raw_input('Enter Mutlicast Source IP: ') or INT2IP(STREAM_IP));
 			except:
 				continue;
 			if STREAM_IP == 0:
