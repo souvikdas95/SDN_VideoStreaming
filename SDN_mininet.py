@@ -39,6 +39,7 @@ from mininet.link import OVSIntf;
 from mininet.link import TCLink;
 from mininet.link import TCIntf;
 from mininet.clean import Cleanup;
+import time;
 
 # Import Configuration
 from SDN_config import *;
@@ -219,6 +220,7 @@ def STREAM(STREAM_SRC):
 	
 	# Prepare Stream Output Directory
 	info('\n*** Preparing Stream Output Directories . . . ');
+	start_time = time.time();
 	SOURCE_FILENAME = os.path.split(STREAM_SRC)[1];
 	_SOURCE_SPLIT = os.path.splitext(SOURCE_FILENAME);
 	V_NAME = _SOURCE_SPLIT[0];
@@ -288,6 +290,7 @@ def STREAM(STREAM_SRC):
 		thread_sap_client.join();
 	info('\n*** SAP Completed . . . ');
 
+	duration = time.time() - start_time;
 	# Initialize Source Packet Capture
 	info('\n*** Initializing Source Packet Capture . . . ');
 	source_host.cmd('touch \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\' && '
@@ -446,6 +449,7 @@ def STREAM(STREAM_SRC):
 					'Sources',
 					'Destinations',
 					'NoiseRate',
+					'Duration',
 					'FramesTx',
 					'FramesRx',
 					'PacketsTx',
@@ -473,6 +477,7 @@ def STREAM(STREAM_SRC):
 		fieldvalue_list.append([source_host.name]); # Vertical Format 'Sources'
 		fieldvalue_list.append(dest_host_list); # Vertical Format 'Destinations'
 		fieldvalue_list.append([noise_rate]); # Vertical Format 'NoiseRate'
+		fieldvalue_list.append([duration]); # Vertical Format 'Duration'
 		fieldvalue_list.append([frame_count_source]); # Vertical Format 'FramesTx'
 		fieldvalue_list.append(frame_count_dest); # Vertical Format 'FramesRx'
 		fieldvalue_list.append([packets_sent]); # Vertical Format 'PacketsTx'
