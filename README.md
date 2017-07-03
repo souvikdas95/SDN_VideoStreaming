@@ -104,6 +104,10 @@
 	# Note: For Random, this is the Max. Hosts per Switch (0 - Minimum)
 	HOST_COUNT_PER_SWITCH = 2
 
+	# Max. Switch-Switch Links in the Topology globally
+	# Note: Only valid for Random (Value Range depends on SWITCH_COUNT)
+	HOST_COUNT_PER_SWITCH = ?
+
 	# Enable STP at Switch
 	# Note: May be required in case of sophisticated topology
 	# Note: Helps prevent broadcast storms

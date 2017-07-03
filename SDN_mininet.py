@@ -117,16 +117,22 @@ elif TOPOLOGY_TYPE == 4:
     pass; # Nothing to do with 1 Switch :V
 elif TOPOLOGY_TYPE == 5:
 	neighbor = {};
+	switch_switch_link_selection_list = list();
 	for i in range(SWITCH_COUNT - 1):
 		if neighbor.has_key(switch_list[i]) == False:
 			neighbor[switch_list[i]] = set();
 		for j in range(i + 1, SWITCH_COUNT):
 			if neighbor.has_key(switch_list[j]) == False:
 				neighbor[switch_list[j]] = set();
-			if bool(random.getrandbits(1)) == True:
-				switch_switch_link_list.append(net.addLink(switch_list[i], switch_list[j], cls = TCLink, Intf = TCIntf, fast = False));
-				neighbor[switch_list[i]].add(switch_list[j]);
-				neighbor[switch_list[j]].add(switch_list[i]);
+			switch_switch_link_selection_list.append((i, j));
+	# Note: Max. Links to allocate via Random from list must
+	# always be less than Max. Global Switch links by an amount,
+	# equal to (SWITCH_COUNT - 1).
+	switch_switch_link_selection_list = random.sample(switch_switch_link_selection_list, SWITCH_GLOBAL_MAX_LINKS - (SWITCH_COUNT - 1));
+	for (i, j) in switch_switch_link_selection_list:
+		switch_switch_link_list.append(net.addLink(switch_list[i], switch_list[j], cls = TCLink, Intf = TCIntf, fast = False));
+		neighbor[switch_list[i]].add(switch_list[j]);
+		neighbor[switch_list[j]].add(switch_list[i]);
 	conn_comp_list = [];
 	switch_set = set(switch_list);
 	while switch_set:

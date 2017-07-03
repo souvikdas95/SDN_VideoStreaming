@@ -15,6 +15,7 @@ HOST_COUNT_PER_SWITCH = 2;
 USE_STP = False;
 HOST_LINK_SPEED = 1;
 SWITCH_LINK_SPEED = 1;
+global SWITCH_GLOBAL_MAX_LINKS;    # Only for Random Topology
 
 # Welcome
 setLogLevel('info');
@@ -135,6 +136,16 @@ elif TOPOLOGY_TYPE == 5:
             info ('*** Error: Invalid Input\n');
             continue;
         if HOST_COUNT_PER_SWITCH < 1:
+            info ('*** Error: Input out of range\n');
+            continue;
+        break;
+    while True:
+        try:
+            SWITCH_GLOBAL_MAX_LINKS = int(raw_input('Enter Global max. Switch-Switch links (>= ' + str(SWITCH_COUNT - 1) + ' & <= ' + str((SWITCH_COUNT - 1) * SWITCH_COUNT / 2) + '): ') or str(2 * (SWITCH_COUNT - 1)));
+        except ValueError:
+            info ('*** Error: Invalid Input\n');
+            continue;
+        if SWITCH_GLOBAL_MAX_LINKS < (SWITCH_COUNT - 1) or SWITCH_GLOBAL_MAX_LINKS > ((SWITCH_COUNT - 1) * SWITCH_COUNT / 2):
             info ('*** Error: Input out of range\n');
             continue;
         break;
