@@ -106,7 +106,7 @@
 
 	# Max. Switch-Switch Links in the Topology globally
 	# Note: Only valid for Random (Value Range depends on SWITCH_COUNT)
-	HOST_COUNT_PER_SWITCH = ?
+	SWITCH_GLOBAL_MAX_LINKS = ?
 
 	# Enable STP at Switch
 	# Note: May be required in case of sophisticated topology
