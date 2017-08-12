@@ -30,7 +30,7 @@ SAP_DIR = BASE_DIR + os.path.sep + 'SAP';
 # Mininet Imports
 from mininet.net import Mininet;
 from mininet.cli import CLI;
-from mininet.log import setLogLevel, info;
+from mininet.log import setLogLevel, info, warn;
 from mininet.node import Node;
 from mininet.util import waitListening;
 from mininet.node import OVSSwitch, Controller, RemoteController;
@@ -340,13 +340,21 @@ def STREAM(STREAM_SRC):
 	# Prepare Stream Recorders
 	info('\n*** Preparing Stream Recorders . . . ');
 	record_args_init = 'ffmpeg -protocol_whitelist file,udp,rtcp,rtp ';
+	_STREAM_COMPLETED = False;
 	def _record(_dest_host, _record_args):
-		_dest_host.cmd(_record_args);
+		_last = time.time();
+		_count = 0;
+		while _STREAM_COMPLETED == False and time.time() - _last < 30.0 and _count < 10:
+			if _count > 0:
+				warn('\n*** WARNING: Recording Failed to Start for \'' + _dest_host.name + '\'. Retry #' + str(_count) + ' . . .');
+			_last = time.time();
+			_dest_host.cmd(_record_args);
+			_count += 1;
 	thread_record_list = [];
 	for i in range(DESTINATION_COUNT):
 		record_args_end =(	'-i \'' + SDP_DIR + os.path.sep + V_NAME + '_destination_' + str(i) + '.sdp\' -c copy -y '
 							'\'' + REC_DIR + os.path.sep + 'recording_' + str(i) + '.ts\' '
-							'> \'' + LOGS_DIR + os.path.sep + 'recorder_' + str(i) + '.log\' 2>&1');
+							'>> \'' + LOGS_DIR + os.path.sep + 'recorder_' + str(i) + '.log\' 2>&1');
 		t = threading.Thread(target=_record, args=(dest_host_list[i], record_args_init + record_args_end));
 		t.start();
 		thread_record_list.append(t);
@@ -365,6 +373,7 @@ def STREAM(STREAM_SRC):
 	# Wait for Stream Completion
 	thread_stream.join();
 	info('\n*** Streaming Completed . . . ');
+	_STREAM_COMPLETED = True;
 	info('\n*** Waiting for Record Completion . . . ');
 	for thread_record in thread_record_list:
 		thread_record.join();
