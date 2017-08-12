@@ -4,7 +4,7 @@
 	Documentation: Pending . . .
 """
 
-import sys, os, threading, time, math, random, csv;
+import sys, os, threading, time, math, random, csv, struct, socket;
 
 # Suppress .pyc generation
 sys.dont_write_bytecode = True;
@@ -39,7 +39,6 @@ from mininet.link import OVSIntf;
 from mininet.link import TCLink;
 from mininet.link import TCIntf;
 from mininet.clean import Cleanup;
-import time;
 
 # Import Configuration
 from SDN_config import *;
@@ -54,7 +53,8 @@ OVERHEAD = 52;  # Protocol Overhead (18 (Ethernet) + 20 (IP) + 12 (IP-PseudoHead
 DESTINATION_COUNT = 1;
 STREAM_IP = IP2INT('234.0.0.1');
 STREAM_PORT = 5555;
-NOISE_PORT = 65535;
+NOISE_TYPE = 1;
+NOISE_DESTINATION_PORT = 65535;
 NOISE_DATA_RATE = 32 * 1024;
 NOISE_PACKET_DELAY = float(8000 * MTU) / float(NOISE_DATA_RATE);
 SAP_PORT = 49160;
@@ -206,7 +206,8 @@ def STREAM(STREAM_SRC):
 	global DESTINATION_COUNT;
 	global STREAM_IP;
 	global STREAM_PORT;
-	global NOISE_PORT;
+	global NOISE_TYPE;
+	global NOISE_DESTINATION_PORT;
 	global NOISE_DATA_RATE;
 	global NOISE_PACKET_DELAY;
 	global SAP_PORT;
@@ -312,11 +313,25 @@ def STREAM(STREAM_SRC):
 
 	# Start Noise
 	info('\n*** Starting Noise . . . ');
+	noise_host_list = [];
 	for i in range(1, len(host_list)):
 		if host_list[i] not in dest_host_list:
-			host_list[i].cmd(	'cd \'' + BASE_DIR + '\' && '
-								'python \'Noise_UDP.py\' \'' + str(NOISE_PORT) + '\' \'' + str(NOISE_PACKET_PAYLOAD_SIZE) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
-								'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp' + '.log\' 2>&1 &');
+			noise_host_list.append(host_list[i]);
+	if NOISE_TYPE == 1:
+		for i in range(0, len(noise_host_list)):
+			noise_host_list[i].cmd(	'cd \'' + BASE_DIR + '\' && '
+									'python \'Noise_UDP.py\' \'1\' \'' + str(NOISE_DESTINATION_PORT) + '\' \'' + str(NOISE_PACKET_PAYLOAD_SIZE) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
+									'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp' + '.log\' 2>&1 &');
+	elif NOISE_TYPE == 2:
+		_noise_host_offset = len(noise_host_list) / 2;
+		for i in range(0, _noise_host_offset):
+			j = _noise_host_offset + i;
+			noise_host_list[i].cmd(	'cd \'' + BASE_DIR + '\' && '
+									'python \'Noise_UDP.py\' \'2\' \'' + noise_host_list[j].IP(intf = noise_host_list[j].defaultIntf()) + '\' \'' + str(NOISE_DESTINATION_PORT) + '\' \'' + str(NOISE_PACKET_PAYLOAD_SIZE) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
+									'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp' + '.log\' 2>&1 &');
+			noise_host_list[j].cmd(	'cd \'' + BASE_DIR + '\' && '
+									'python \'Noise_UDP.py\' \'2\' \'' + noise_host_list[i].IP(intf = noise_host_list[i].defaultIntf()) + '\' \'' + str(NOISE_DESTINATION_PORT) + '\' \'' + str(NOISE_PACKET_PAYLOAD_SIZE) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
+									'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp' + '.log\' 2>&1 &');
 
 	# Wait for 15 Seconds
 	info('\n*** Wait 15 Seconds for Network to Settle . . . ');
@@ -454,6 +469,7 @@ def STREAM(STREAM_SRC):
 					'Sw-Host LinkSpeed',
 					'Sources',
 					'Destinations',
+					'NoiseType',
 					'NoiseRate',
 					'Duration',
 					'FramesTx',
@@ -482,6 +498,7 @@ def STREAM(STREAM_SRC):
 		fieldvalue_list.append([HOST_LINK_SPEED]); # Vertical Format 'Switch-Host Link Speed'
 		fieldvalue_list.append([source_host.name]); # Vertical Format 'Sources'
 		fieldvalue_list.append(dest_host_list); # Vertical Format 'Destinations'
+		fieldvalue_list.append([NOISE_TYPE]); # Vertical Format 'NoiseType'
 		fieldvalue_list.append([noise_rate]); # Vertical Format 'NoiseRate'
 		fieldvalue_list.append([duration]); # Vertical Format 'Duration'
 		fieldvalue_list.append([frame_count_source]); # Vertical Format 'FramesTx'
@@ -532,7 +549,8 @@ class CustomCLI(CLI):
 		global DESTINATION_COUNT;
 		global STREAM_IP;
 		global STREAM_PORT;
-		global NOISE_PORT;
+		global NOISE_TYPE;
+		global NOISE_DESTINATION_PORT;
 		global NOISE_DATA_RATE;
 		global SAP_PORT;
 		global NOISE_PACKET_DELAY;
@@ -574,19 +592,28 @@ class CustomCLI(CLI):
 				continue;
 			break;
 		while True:
+		    try:
+		        NOISE_TYPE = int(raw_input('Enter Noise Type (1:Broadcast, 2:Unicast): ') or str(NOISE_TYPE));
+		    except ValueError:
+		        info ('*** Error: Invalid Input\n');
+		        continue;
+		    if NOISE_TYPE not in range(1, 2 + 1):
+		        info ('*** Error: Input out of range\n');
+		        continue;
+		    break;
+		while True:
 			try:
-				NOISE_PORT = int(raw_input('Enter Noise Source Port (>= 1024 & <= 65535): ') or str(NOISE_PORT));
+				NOISE_DESTINATION_PORT = int(raw_input('Enter Noise Destination Port (>= 1024 & <= 65535): ') or str(NOISE_DESTINATION_PORT));
 			except ValueError:
 				info ('*** Error: Invalid Input\n');
 				continue;
-			if NOISE_PORT < 1024 or NOISE_PORT > 65535:
+			if NOISE_DESTINATION_PORT < 1024 or NOISE_DESTINATION_PORT > 65535:
 				info ('*** Error: Input out of range\n');
 				continue;
 			break;
-		
 		while True:
 			try:
-				NOISE_DATA_RATE = int(raw_input('Enter Noise Data Rate (>= 1) (in bps): ') or str(NOISE_DATA_RATE));
+				NOISE_DATA_RATE = int(raw_input('Enter Noise Data Rate per Host (>= 1) (in bps): ') or str(NOISE_DATA_RATE));
 			except ValueError:
 				info ('*** Error: Invalid Input\n');
 				continue;

@@ -4,8 +4,6 @@
 	Documentation Pending
 """
 
-import struct, socket;
-
 from mininet.log import setLogLevel, info;
 
 # Default Configuration (Change only if must)
