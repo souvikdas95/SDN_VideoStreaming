@@ -4,216 +4,22 @@
 	Documentation: Pending . . .
 """
 
-import sys, os, threading, time, math, random, csv, struct, socket;
+# Global Imports
+from SDN_global import *;
 
-# Suppress .pyc generation
-sys.dont_write_bytecode = True;
-
-# Base Directory
-BASE_DIR = os.path.dirname(os.path.realpath(__file__));
-
-# Add BASE_DIR to PYTHONPATH
-sys.path.append(BASE_DIR);
-
-# Make Directories Save (Create if not exists)
-def makedirs_s(s):
-	if os.path.exists(s) is False:
-		os.makedirs(s);
-
-# Tag & Make Directories
-# TARGET_DIR = BASE_DIR + os.path.sep + 'target';
-# makedirs_s(TARGET_DIR);
-OUTPUT_DIR = BASE_DIR + os.path.sep + 'output';
-makedirs_s(OUTPUT_DIR);
-SAP_DIR = BASE_DIR + os.path.sep + 'SAP';
-
-# Mininet Imports
-from mininet.net import Mininet;
-from mininet.cli import CLI;
-from mininet.log import setLogLevel, info, warn;
-from mininet.node import Node, Docker;
-from mininet.util import waitListening;
-from mininet.node import OVSSwitch, Controller, RemoteController;
-from mininet.link import OVSLink;
-from mininet.link import OVSIntf;
-from mininet.link import TCLink;
-from mininet.link import TCIntf;
-from mininet.clean import Cleanup;
-
-# Import Configuration
-from SDN_config import *;
-
-# IP-INT conversion methods
-IP2INT = lambda ipstr: struct.unpack('!I', socket.inet_aton(ipstr))[0]; 	# IP Address to Integer
-INT2IP = lambda n: socket.inet_ntoa(struct.pack('!I', n));              	# Integer to IP Address
-
-# Stream Default Configuration
-MTU = 1492; # Maximum Transmission Unit (Bytes)
-OVERHEAD = 52;  # Protocol Overhead (18 (Ethernet) + 20 (IP) + 12 (IP-PseudoHeader) + 8 (UDP-Header) + 6 (Ethernet-Padding) = 52 Bytes)
-DESTINATION_COUNT = 1;
-STREAM_IP = IP2INT('234.0.0.1');
-STREAM_PORT = 5555;
-NOISE_TYPE = 1;
-NOISE_DESTINATION_PORT = 65535;
-NOISE_DATA_RATE = 32 * 1024;
-NOISE_PACKET_DELAY = float(8000 * MTU) / float(NOISE_DATA_RATE);
-SAP_PORT = 49160;
-NOISE_PACKET_PAYLOAD_SIZE = MTU - OVERHEAD;	# Ensure Full Utilization of Packet
-
-# Create Mininet Instance
-setLogLevel('info');
-net = Mininet(topo = None, controller = None, build = False, waitConnected = True);
-
-# Connect to Controller
-info('*** Connecting to controller\n');
-net.addController('c0', controller = RemoteController, ip = '127.0.0.1', port = 6653, ipBase = '10.0.0.128');
-
-# Declare IP Pool
-info('*** Declaring IP Pool\n');
-iter_ip = IP2INT('10.0.0.128'); # Starting Address
-
-# Create Switches
-info('*** Creating switches (Open vSwitch w/ OpenFlow13)\n');
-switch_list = [];
-switch_count = 0;
-for i in range(SWITCH_COUNT):
-    switch_count += 1;
-    switch_list.append(net.addSwitch('s' + str(switch_count), cls = OVSSwitch, protocols = 'OpenFlow13', inband = False,
-    					failMode = 'standalone' if (USE_STP == True) else 'secure',
-    					stp = USE_STP));
-
-# Create Hosts
-info('*** Creating hosts\n');
-switch_host_list = [];
-host_list = []
-host_count_in_switch = HOST_COUNT_PER_SWITCH;
-host_count = 0;
-host_volumes = [];
-host_volumes.append(BASE_DIR + ':' + BASE_DIR);
-for i in range(SWITCH_COUNT):
-	switch_host_list.append([]);
-	if TOPOLOGY_TYPE == 5:
-		host_count_in_switch = random.randint(0, HOST_COUNT_PER_SWITCH);
-	for j in range(host_count_in_switch):
-		host_count += 1;
-		h = net.addHost('d' + str(host_count), ip = INT2IP(iter_ip), cls = Docker, dimage = "ubuntu:build_sdn", volumes = host_volumes);
-		switch_host_list[i].append(h);
-		host_list.append(h);
-		iter_ip += 1;
-
-# Create Switch - Switch Links
-info('*** Creating Switch - Switch Links\n');
-switch_switch_link_list = []
-if TOPOLOGY_TYPE == 1:
-    for i in range(SWITCH_COUNT - 1):
-        switch_switch_link_list.append(net.addLink(switch_list[i], switch_list[i + 1], cls = TCLink, Intf = TCIntf, fast = False));
-elif TOPOLOGY_TYPE == 2:
-    for i in range(SWITCH_COUNT - 1):
-        switch_switch_link_list.append(net.addLink(switch_list[i], switch_list[i + 1], cls = TCLink, Intf = TCIntf, fast = False));
-    switch_switch_link_list.append(net.addLink(switch_list[SWITCH_COUNT - 1], switch_list[0], cls = TCLink, Intf = TCIntf, fast = False));
-elif TOPOLOGY_TYPE == 3:
-    for i in range(SWITCH_COUNT - 1):
-        for j in range(i + 1, SWITCH_COUNT):
-            switch_switch_link_list.append(net.addLink(switch_list[i], switch_list[j], cls = TCLink, Intf = TCIntf, fast = False));
-elif TOPOLOGY_TYPE == 4:
-    pass; # Nothing to do with 1 Switch :V
-elif TOPOLOGY_TYPE == 5:
-	neighbor = {};
-	switch_switch_link_selection_list = list();
-	for i in range(SWITCH_COUNT - 1):
-		if neighbor.has_key(switch_list[i]) == False:
-			neighbor[switch_list[i]] = set();
-		for j in range(i + 1, SWITCH_COUNT):
-			if neighbor.has_key(switch_list[j]) == False:
-				neighbor[switch_list[j]] = set();
-			switch_switch_link_selection_list.append((i, j));
-	# Note: Max. Links to allocate via Random from list must
-	# always be less than Max. Global Switch links by an amount,
-	# equal to (SWITCH_COUNT - 1).
-	switch_switch_link_selection_list = random.sample(switch_switch_link_selection_list, SWITCH_GLOBAL_MAX_LINKS - (SWITCH_COUNT - 1));
-	for (i, j) in switch_switch_link_selection_list:
-		switch_switch_link_list.append(net.addLink(switch_list[i], switch_list[j], cls = TCLink, Intf = TCIntf, fast = False));
-		neighbor[switch_list[i]].add(switch_list[j]);
-		neighbor[switch_list[j]].add(switch_list[i]);
-	conn_comp_list = [];
-	switch_set = set(switch_list);
-	while switch_set:
-		sw = switch_set.pop();
-		group_set = {sw};
-		queue_list = [sw];
-		while queue_list:
-			sw = queue_list.pop(0);
-			neighbor_set = neighbor[sw];
-			neighbor_set.difference_update(group_set);
-			switch_set.difference_update(neighbor_set);
-			group_set.update(neighbor_set);
-			queue_list.extend(neighbor_set);
-		conn_comp_list.append(group_set);
-	# for i in range(len(conn_comp_list)):
-	# 	info("Component #" + str(i + 1) + ": ");
-	# 	jlist = list(conn_comp_list[i]);
-	# 	for j in range(len(jlist)):
-	# 		info(jlist[j].name + ", ");
-	# 	print("\n");
-	for i in range(len(conn_comp_list) - 1):
-		rand_comp_item1 = random.sample(conn_comp_list[i], 1)[0];
-		rand_comp_item2 = random.sample(conn_comp_list[i + 1], 1)[0];
-		switch_switch_link_list.append(net.addLink(rand_comp_item1, rand_comp_item2, cls = TCLink, Intf = TCIntf, fast = False));
-
-# Create Switch - Host Links
-info('*** Creating Switch - Host Links\n');
-switch_host_link_list = [];
-for i in range(SWITCH_COUNT):
-	switch_host_link_list.append([]);
-	for j in range(len(switch_host_list[i])):
-		switch_host_link_list[i].append(net.addLink(switch_list[i], switch_host_list[i][j], cls = TCLink, Intf = TCIntf, fast = False));
-
-# Start Network
-info('*** Starting Network\n');
-net.start();
-
-# Configure Traffic Control on Switch - Switch Interfaces
-if TOPOLOGY_TYPE != 4:
-    info('*** Configuring Traffic Control on Switch - Switch Interfaces\n');
-    setLogLevel('error');
-    for i in range(len(switch_switch_link_list)):
-        switch_switch_link_list[i].intf1.config(bw = SWITCH_LINK_SPEED);
-        switch_switch_link_list[i].intf2.config(bw = SWITCH_LINK_SPEED);
-    setLogLevel('info');
-
-# Configure Traffic Control on Switch - Host Interfaces
-info('*** Configuring Traffic Control on Switch - Host Interfaces\n');
-setLogLevel('error');
-for i in range(SWITCH_COUNT):
-	for j in range(len(switch_host_link_list[i])):
-		switch_host_link_list[i][j].intf1.config(bw = HOST_LINK_SPEED);
-		switch_host_link_list[i][j].intf2.config(bw = HOST_LINK_SPEED);
-setLogLevel('info');
-
-# Configure Host Default Routes
-info('*** Configuring Host Default Routes\n');
-for i in range(len(host_list)):
-    host_list[i].setDefaultRoute(host_list[i].defaultIntf());
-
-def STREAM(STREAM_SRC):
+def STREAM(	STREAM_SRC,
+			DESTINATION_COUNT,
+			STREAM_IP,
+			STREAM_PORT,
+			NOISE_TYPE,
+			NOISE_DESTINATION_PORT,
+			NOISE_DATA_RATE,
+			NOISE_PACKET_DELAY,
+			SAP_PORT):
 	# Delay & Print
 	time.sleep(0.1);
 	sys.stdout.flush();
 	info('\n');
-	
-	# Global Declarations
-	global BASE_DIR;
-	global OUTPUT_DIR;
-	global SAP_DIR;
-	global DESTINATION_COUNT;
-	global STREAM_IP;
-	global STREAM_PORT;
-	global NOISE_TYPE;
-	global NOISE_DESTINATION_PORT;
-	global NOISE_DATA_RATE;
-	global NOISE_PACKET_DELAY;
-	global SAP_PORT;
-	global NOISE_PACKET_PAYLOAD_SIZE;
 	
 	# Print Required Source Destination Information
 	info('\n********************\n');
@@ -230,6 +36,9 @@ def STREAM(STREAM_SRC):
 	# Prepare Stream Output Directory
 	info('\n*** Preparing Stream Output Directories . . . ');
 	start_time = time.time();
+	OUTPUT_DIR = BASE_DIR + os.path.sep + 'output';
+	makedirs_s(OUTPUT_DIR);
+	EXPORTS_DIR = BASE_DIR + os.path.sep + 'exports';
 	SOURCE_FILENAME = os.path.split(STREAM_SRC)[1];
 	_SOURCE_SPLIT = os.path.splitext(SOURCE_FILENAME);
 	V_NAME = _SOURCE_SPLIT[0];
@@ -277,13 +86,13 @@ def STREAM(STREAM_SRC):
 	
 	# Initiate SAP
 	info('\n*** Initiating SAP . . . ');
-	source_host.cmd('cd \'' + SAP_DIR + '\' && '
+	source_host.cmd('cd \'' + EXPORTS_DIR + '\' && '
 					'python SAP_server.py '
 					'\'' + source_host.IP(intf = source_host.defaultIntf()) + '\' '
 					'\'' + str(SAP_PORT) + '\' '
 					'\'' + SDP_DIR + os.path.sep + V_NAME + '_source.sdp\' '
 					'&> \'' + LOGS_DIR + os.path.sep + 'SAP_server.log\' 2>&1 &');
-	sap_client_command_args_init = 	'cd \'' + SAP_DIR + '\' && python SAP_client.py ';
+	sap_client_command_args_init = 	'cd \'' + EXPORTS_DIR + '\' && python SAP_client.py ';
 	def _sap_client_command(_dest_host, _sap_client_command_args):
 		_dest_host.cmd(_sap_client_command_args);
 	thread_sap_client_list = [];
@@ -321,17 +130,17 @@ def STREAM(STREAM_SRC):
 			noise_host_list.append(host_list[i]);
 	if NOISE_TYPE == 1:
 		for i in range(0, len(noise_host_list)):
-			noise_host_list[i].cmd(	'cd \'' + BASE_DIR + '\' && '
+			noise_host_list[i].cmd(	'cd \'' + EXPORTS_DIR + '\' && '
 									'python \'Noise_UDP.py\' \'1\' \'' + str(NOISE_DESTINATION_PORT) + '\' \'' + str(NOISE_PACKET_PAYLOAD_SIZE) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
 									'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp' + '.log\' 2>&1 &');
 	elif NOISE_TYPE == 2:
 		_noise_host_offset = len(noise_host_list) / 2;
 		for i in range(0, _noise_host_offset):
 			j = _noise_host_offset + i;
-			noise_host_list[i].cmd(	'cd \'' + BASE_DIR + '\' && '
+			noise_host_list[i].cmd(	'cd \'' + EXPORTS_DIR + '\' && '
 									'python \'Noise_UDP.py\' \'2\' \'' + noise_host_list[j].IP(intf = noise_host_list[j].defaultIntf()) + '\' \'' + str(NOISE_DESTINATION_PORT) + '\' \'' + str(NOISE_PACKET_PAYLOAD_SIZE) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
 									'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp' + '.log\' 2>&1 &');
-			noise_host_list[j].cmd(	'cd \'' + BASE_DIR + '\' && '
+			noise_host_list[j].cmd(	'cd \'' + EXPORTS_DIR + '\' && '
 									'python \'Noise_UDP.py\' \'2\' \'' + noise_host_list[i].IP(intf = noise_host_list[i].defaultIntf()) + '\' \'' + str(NOISE_DESTINATION_PORT) + '\' \'' + str(NOISE_PACKET_PAYLOAD_SIZE) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
 									'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp' + '.log\' 2>&1 &');
 
@@ -545,114 +354,3 @@ def STREAM(STREAM_SRC):
 	
 	# Finished
 	info('\n*** Finished.');
-
-# Custom Class for CLI
-class CustomCLI(CLI):
-	def do_stream(self, _line):
-		argv = _line.split();
-		if len(argv) > 0 and os.path.isfile(argv[0]) is True:
-			arg = os.path.abspath(argv[0]);
-		else:
-			info('*** Invalid Path!\n');
-			return;
-		
-		# Import Global Vars
-		global DESTINATION_COUNT;
-		global STREAM_IP;
-		global STREAM_PORT;
-		global NOISE_TYPE;
-		global NOISE_DESTINATION_PORT;
-		global NOISE_DATA_RATE;
-		global SAP_PORT;
-		global NOISE_PACKET_DELAY;
-		
-		# Set Streaming Parameters
-		while True:
-			try:
-				MAX_DESTINATION_COUNT = SWITCH_COUNT * HOST_COUNT_PER_SWITCH - 1;
-				DESTINATION_COUNT = int(raw_input('Enter number of destinations (>= 1 & <= ' + str(MAX_DESTINATION_COUNT) + '): ') or str(DESTINATION_COUNT));
-			except ValueError:
-				info ('*** Error: Invalid Input\n');
-				continue;
-			if DESTINATION_COUNT < 1 or DESTINATION_COUNT > MAX_DESTINATION_COUNT:
-				info ('*** Error: Input out of range\n');
-				continue;
-			break;
-		while True:
-			try:
-				STREAM_IP = IP2INT(raw_input('Enter Mutlicast Source IP: ') or INT2IP(STREAM_IP));
-			except:
-				continue;
-			if STREAM_IP == 0:
-				info ('*** Error: Invalid Input\n');
-				continue;
-			IP_RANGE_MIN = IP2INT('224.0.0.1');
-			IP_RANGE_MAX = IP2INT('239.255.255.255');
-			if STREAM_IP < IP_RANGE_MIN or STREAM_IP > IP_RANGE_MAX:
-				info ('*** Error: Input out of range\n');
-				continue;
-			break;
-		while True:
-			try:
-				STREAM_PORT = int(raw_input('Enter Mutlicast Source Port (>= 1024 & <= 65535): ') or str(STREAM_PORT));
-			except ValueError:
-				info ('*** Error: Invalid Input\n');
-				continue;
-			if STREAM_PORT < 1024 or STREAM_PORT > 65535:
-				info ('*** Error: Input out of range\n');
-				continue;
-			break;
-		while True:
-		    try:
-		        NOISE_TYPE = int(raw_input('Enter Noise Type (1:Broadcast, 2:Unicast): ') or str(NOISE_TYPE));
-		    except ValueError:
-		        info ('*** Error: Invalid Input\n');
-		        continue;
-		    if NOISE_TYPE not in range(1, 2 + 1):
-		        info ('*** Error: Input out of range\n');
-		        continue;
-		    break;
-		while True:
-			try:
-				NOISE_DESTINATION_PORT = int(raw_input('Enter Noise Destination Port (>= 1024 & <= 65535): ') or str(NOISE_DESTINATION_PORT));
-			except ValueError:
-				info ('*** Error: Invalid Input\n');
-				continue;
-			if NOISE_DESTINATION_PORT < 1024 or NOISE_DESTINATION_PORT > 65535:
-				info ('*** Error: Input out of range\n');
-				continue;
-			break;
-		while True:
-			try:
-				NOISE_DATA_RATE = int(raw_input('Enter Noise Data Rate per Host (>= 1) (in bps): ') or str(NOISE_DATA_RATE));
-			except ValueError:
-				info ('*** Error: Invalid Input\n');
-				continue;
-			if NOISE_DATA_RATE < 1:
-				info ('*** Error: Input out of range\n');
-				continue;
-			break;
-		while True:
-			try:
-				SAP_PORT = int(raw_input('Enter SAP Source Port (>= 1024 & <= 65535): ') or str(SAP_PORT));
-			except ValueError:
-				info ('*** Error: Invalid Input\n');
-				continue;
-			if SAP_PORT < 1024 or SAP_PORT > 65535:
-				info ('*** Error: Input out of range\n');
-				continue;
-			break;
-		NOISE_PACKET_DELAY = float(8000 * MTU) / float(NOISE_DATA_RATE);
-		t = threading.Thread(target = STREAM, args = (arg, ));
-		t.start();
-
-# Switch to CLI
-CustomCLI(net);
-
-# Stop Network
-info('*** Stopping Network\n');
-net.stop();
-
-# Cleanup
-info('*** Cleaning Up\n');
-Cleanup.cleanup();

@@ -1,10 +1,11 @@
 #!/usr/bin/python
 
 """
-	Documentation Pending
+    Documentation: Pending . . .
 """
 
-from mininet.log import setLogLevel, info;
+# Global Imports
+from SDN_global import *;
 
 # Default Configuration (Change only if must)
 TOPOLOGY_TYPE = 1;
