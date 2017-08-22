@@ -5,7 +5,7 @@
 """
 
 # Global Imports
-from SDN_global import *;
+import os, socket, struct;
 
 # Make Directories Save (Create if not exists)
 def makedirs_s(s):
@@ -14,4 +14,4 @@ def makedirs_s(s):
 
 # IP-INT conversion methods
 IP2INT = lambda ipstr: struct.unpack('!I', socket.inet_aton(ipstr))[0]; 	# IP Address to Integer
-INT2IP = lambda n: socket.inet_ntoa(struct.pack('!I', n));              	# Integer to IP Address
+INT2IP = lambda n: socket.inet_ntoa(struct.pack('!I', n));					# Integer to IP Address

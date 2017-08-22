@@ -23,11 +23,11 @@ def STREAM(	STREAM_SRC,
 	
 	# Print Required Source Destination Information
 	info('\n********************\n');
-	source_host = host_list[0];
+	source_host = gMain['host_list'][0];
 	info('*** Source Host: ' + source_host.name + ' (' + source_host.IP(intf = source_host.defaultIntf()) + ')\n');
-	if DESTINATION_COUNT > len(host_list) - 1:
-		DESTINATION_COUNT = len(host_list) - 1;
-	dest_host_list = random.sample(host_list[1::], DESTINATION_COUNT);
+	if DESTINATION_COUNT > len(gMain['host_list']) - 1:
+		DESTINATION_COUNT = len(gMain['host_list']) - 1;
+	dest_host_list = random.sample(gMain['host_list'][1::], DESTINATION_COUNT);
 	info('*** Destination Hosts: \n');
 	for i in range(DESTINATION_COUNT):
 		info('*** ' + dest_host_list[i].name + ' (' + dest_host_list[i].IP(intf = dest_host_list[i].defaultIntf()) + ')\n');
@@ -36,6 +36,7 @@ def STREAM(	STREAM_SRC,
 	# Prepare Stream Output Directory
 	info('\n*** Preparing Stream Output Directories . . . ');
 	start_time = time.time();
+	global BASE_DIR;
 	OUTPUT_DIR = BASE_DIR + os.path.sep + 'output';
 	makedirs_s(OUTPUT_DIR);
 	EXPORTS_DIR = BASE_DIR + os.path.sep + 'exports';
@@ -125,23 +126,23 @@ def STREAM(	STREAM_SRC,
 	# Start Noise
 	info('\n*** Starting Noise . . . ');
 	noise_host_list = [];
-	for i in range(1, len(host_list)):
-		if host_list[i] not in dest_host_list:
-			noise_host_list.append(host_list[i]);
+	for i in range(1, len(gMain['host_list'])):
+		if gMain['host_list'][i] not in dest_host_list:
+			noise_host_list.append(gMain['host_list'][i]);
 	if NOISE_TYPE == 1:
 		for i in range(0, len(noise_host_list)):
 			noise_host_list[i].cmd(	'cd \'' + EXPORTS_DIR + '\' && '
-									'python \'Noise_UDP.py\' \'1\' \'' + str(NOISE_DESTINATION_PORT) + '\' \'' + str(NOISE_PACKET_PAYLOAD_SIZE) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
+									'python \'Noise_UDP.py\' \'1\' \'' + str(NOISE_DESTINATION_PORT) + '\' \'' + str(gPacketConfig['NOISE_PACKET_PAYLOAD_SIZE']) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
 									'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp' + '.log\' 2>&1 &');
 	elif NOISE_TYPE == 2:
 		_noise_host_offset = len(noise_host_list) / 2;
 		for i in range(0, _noise_host_offset):
 			j = _noise_host_offset + i;
 			noise_host_list[i].cmd(	'cd \'' + EXPORTS_DIR + '\' && '
-									'python \'Noise_UDP.py\' \'2\' \'' + noise_host_list[j].IP(intf = noise_host_list[j].defaultIntf()) + '\' \'' + str(NOISE_DESTINATION_PORT) + '\' \'' + str(NOISE_PACKET_PAYLOAD_SIZE) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
+									'python \'Noise_UDP.py\' \'2\' \'' + noise_host_list[j].IP(intf = noise_host_list[j].defaultIntf()) + '\' \'' + str(NOISE_DESTINATION_PORT) + '\' \'' + str(gPacketConfig['NOISE_PACKET_PAYLOAD_SIZE']) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
 									'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp' + '.log\' 2>&1 &');
 			noise_host_list[j].cmd(	'cd \'' + EXPORTS_DIR + '\' && '
-									'python \'Noise_UDP.py\' \'2\' \'' + noise_host_list[i].IP(intf = noise_host_list[i].defaultIntf()) + '\' \'' + str(NOISE_DESTINATION_PORT) + '\' \'' + str(NOISE_PACKET_PAYLOAD_SIZE) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
+									'python \'Noise_UDP.py\' \'2\' \'' + noise_host_list[i].IP(intf = noise_host_list[i].defaultIntf()) + '\' \'' + str(NOISE_DESTINATION_PORT) + '\' \'' + str(gPacketConfig['NOISE_PACKET_PAYLOAD_SIZE']) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
 									'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp' + '.log\' 2>&1 &');
 
 	# Wait for 15 Seconds
@@ -190,6 +191,18 @@ def STREAM(	STREAM_SRC,
 		thread_record.join();
 	info('\n*** Recording Completed . . . ');
 	time.sleep(1);
+
+	# Clean Residue Processes
+	info('\n*** Cleaning Residue Processes . . . ');
+	for i in range(len(gMain['host_list'])):
+		ps = gMain['host_list'][i].cmd('ps | grep -v \"bash\"').split('\n');
+		del ps[0];
+		for line in ps:
+			try:
+				pid = int(line.strip().split(' ')[0]);
+				gMain['host_list'][i].cmd('kill -9 ' + str(pid));
+			except:
+				pass;
 
 	# Process PSNR for each Recording
 	info('\n*** Processing PSNR Results . . . ');
@@ -311,11 +324,11 @@ def STREAM(	STREAM_SRC,
 		#Create Field Value List
 		fieldvalue_list = []
 		fieldvalue_list.append([V_NAME + '_v' + str(version)]);
-		fieldvalue_list.append([TOPOlOGY_LIST[TOPOLOGY_TYPE - 1]]); # Vertical Format 'Topology'
-		fieldvalue_list.append([len(switch_list)]); # Vertical Format 'Switches#'
-		fieldvalue_list.append([len(host_list)]); # Vertical Format 'Hosts#'
-		fieldvalue_list.append([SWITCH_LINK_SPEED]); # Vertical Format 'Switch-Switch Link Speed'
-		fieldvalue_list.append([HOST_LINK_SPEED]); # Vertical Format 'Switch-Host Link Speed'
+		fieldvalue_list.append([gConfig['TOPOLOGY_LIST'][gConfig['TOPOLOGY_TYPE'] - 1]]); # Vertical Format 'Topology'
+		fieldvalue_list.append([len(gMain['switch_list'])]); # Vertical Format 'Switches#'
+		fieldvalue_list.append([len(gMain['host_list'])]); # Vertical Format 'Hosts#'
+		fieldvalue_list.append([gConfig['SWITCH_LINK_SPEED']]); # Vertical Format 'Switch-Switch Link Speed'
+		fieldvalue_list.append([gConfig['HOST_LINK_SPEED']]); # Vertical Format 'Switch-Host Link Speed'
 		fieldvalue_list.append([source_host.name]); # Vertical Format 'Sources'
 		fieldvalue_list.append(dest_host_list); # Vertical Format 'Destinations'
 		fieldvalue_list.append([NOISE_TYPE]); # Vertical Format 'NoiseType'
@@ -340,17 +353,6 @@ def STREAM(	STREAM_SRC,
 			writer.writerow(row);
 			row_count += 1;
 	
-	# Clean Residue Processes
-	info('\n*** Cleaning Residue Processes . . . ');
-	for i in range(len(host_list)):
-		ps = host_list[i].cmd('ps | grep -v \"bash\"').split('\n');
-		del ps[0];
-		for line in ps:
-			try:
-				pid = int(line.strip().split(' ')[0]);
-				host_list[i].cmd('kill -9 ' + str(pid));
-			except:
-				pass;
-	
 	# Finished
 	info('\n*** Finished.');
+	Cleanup.cleanup();
