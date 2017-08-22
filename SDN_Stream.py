@@ -355,4 +355,6 @@ def STREAM(	STREAM_SRC,
 	
 	# Finished
 	info('\n*** Finished.');
-	Cleanup.cleanup();
+	if gArg['argv']:
+		Cleanup.cleanup();
+		sys.exit(0);
