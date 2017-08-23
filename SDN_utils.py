@@ -15,3 +15,9 @@ def makedirs_s(s):
 # IP-INT conversion methods
 IP2INT = lambda ipstr: struct.unpack('!I', socket.inet_aton(ipstr))[0]; 	# IP Address to Integer
 INT2IP = lambda n: socket.inet_ntoa(struct.pack('!I', n));					# Integer to IP Address
+
+# Find Mean
+def get_mean(_list):
+	if not _list:
+		return 0.0;
+	return sum(_list) / len(_list);

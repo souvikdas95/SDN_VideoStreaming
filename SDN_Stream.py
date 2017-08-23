@@ -170,27 +170,22 @@ def STREAM(	STREAM_SRC,
 		t = threading.Thread(target=_record, args=(dest_host_list[i], record_args_init + record_args_end));
 		t.start();
 		thread_record_list.append(t);
-	time.sleep(max(5, DESTINATION_COUNT));
 
 	# Start Streamer
 	stream_args =(	'ffmpeg -re -i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\' '
 					'-c copy -f rtp -y \'rtp://@' + INT2IP(STREAM_IP) + ':' + str(STREAM_PORT) + '\' '
 					'> \'' + LOGS_DIR + os.path.sep + 'streamer.log\' 2>&1');
-	def _stream(_source_host, _stream_args):
-		_source_host.cmd(_stream_args);
-	thread_stream = threading.Thread(target=_stream, args=(source_host, stream_args));
-	thread_stream.start();
+	source_host.sendCmd(stream_args);
 	info('\n*** Streaming Started . . . ');
 
 	# Wait for Stream Completion
-	thread_stream.join();
+	source_host.waitOutput(verbose = False, findPid = False);
 	info('\n*** Streaming Completed . . . ');
 	_STREAM_COMPLETED = True;
 	info('\n*** Waiting for Record Completion . . . ');
 	for thread_record in thread_record_list:
 		thread_record.join();
 	info('\n*** Recording Completed . . . ');
-	time.sleep(1);
 
 	# Clean Residue Processes
 	info('\n*** Cleaning Residue Processes . . . ');
@@ -206,7 +201,6 @@ def STREAM(	STREAM_SRC,
 
 	# Process PSNR for each Recording
 	info('\n*** Processing PSNR Results . . . ');
-	time.sleep(1);
 	rec_avg_psnr_list = [];
 	frame_count_dest = [];
 	for i in range(DESTINATION_COUNT):
@@ -214,7 +208,6 @@ def STREAM(	STREAM_SRC,
 								'-vf \"movie=\'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\', psnr=stats_file=\'' + PSNR_DIR + os.path.sep + 'rec_' + str(i) + '_psnr.txt\'\" '
 								'-f rawvideo -y /dev/null '
 								'> \'' + LOGS_DIR + os.path.sep + 'rec_' + str(i) + '_psnr' + '.log\' 2>&1');
-		time.sleep(1);
 		try:
 			with open(PSNR_DIR + os.path.sep + 'rec_' + str(i) + '_psnr.txt', 'r') as f:
 				pass;
@@ -245,9 +238,8 @@ def STREAM(	STREAM_SRC,
 			rec_avg_psnr_list.append(avg_psnr);
 			frame_count_dest.append(frame_count);
 		
-	# Process Packets Send/Received
+	# Process Packets Sent/Received
 	info('\n*** Processing PCAP Results . . . ');
-	time.sleep(1);
 	try:
 		packets_sent = source_host.cmd(	'tshark -r \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\' '
 											'-q -z io,phs | sed -n \'7,7p\' | cut -d \" \" -f 40 | cut -d \":\" -f 2').split('\n');
@@ -259,7 +251,6 @@ def STREAM(	STREAM_SRC,
 		packets_sent = -1; # error
 	packets_recv_list = [];
 	for i in range(DESTINATION_COUNT):
-		time.sleep(1);
 		try:
 			packets_recv = dest_host_list[i].cmd(	'tshark -r \'' + PCAP_DIR + os.path.sep + 'destination_host_' + str(i) + '.pcap\' '
 														'-q -z io,phs | sed -n \'7,7p\' | cut -d \" \" -f 40 | cut -d \":\" -f 2').split('\n');
@@ -270,10 +261,9 @@ def STREAM(	STREAM_SRC,
 		except ValueError:
 			packets_recv = -1; # error
 		packets_recv_list.append(packets_recv);
-	
+
 	# Retrieve Noise Rate
 	info('\n*** Retrieving Noise Rate . . . ');
-	time.sleep(1);
 	try:
 		with open(LOGS_DIR + os.path.sep + 'noise_udp' + '.log', 'r') as f:
 			pass;
@@ -310,6 +300,8 @@ def STREAM(	STREAM_SRC,
 					'PacketsTx',
 					'PacketsRx',
 					'avgPSNR'	];
+
+	# Brief Report
 	try:
 		with open(OUTPUT_DIR + os.path.sep + 'REPORT.csv', 'rb') as f:
 			pass;
@@ -319,6 +311,42 @@ def STREAM(	STREAM_SRC,
 			writer.writeheader();
 			pass;
 	with open(OUTPUT_DIR + os.path.sep + 'REPORT.csv', 'a+b') as csvfile:
+		writer = csv.DictWriter(csvfile, fieldnames = fieldnames);
+		
+		#Create Field Value List
+		fieldvalue = []
+		fieldvalue.append(V_NAME + '_v' + str(version));
+		fieldvalue.append(gConfig['TOPOLOGY_LIST'][gConfig['TOPOLOGY_TYPE'] - 1]); # 'Topology'
+		fieldvalue.append(len(gMain['switch_list'])); # 'Switches#'
+		fieldvalue.append(len(gMain['host_list'])); # 'Hosts#'
+		fieldvalue.append(gConfig['SWITCH_LINK_SPEED']); # 'Switch-Switch Link Speed'
+		fieldvalue.append(gConfig['HOST_LINK_SPEED']); # 'Switch-Host Link Speed'
+		fieldvalue.append(source_host.name); # 'Sources'
+		fieldvalue.append(len(dest_host_list)); # 'Destinations'
+		fieldvalue.append(NOISE_TYPE); # 'NoiseType'
+		fieldvalue.append(noise_rate); # 'NoiseRate'
+		fieldvalue.append(duration); # 'Duration'
+		fieldvalue.append(frame_count_source); # 'FramesTx'
+		fieldvalue.append(get_mean(frame_count_dest)); # 'FramesRx'
+		fieldvalue.append(packets_sent); # 'PacketsTx'
+		fieldvalue.append(get_mean(packets_recv_list)); # 'PacketsRx'
+		fieldvalue.append(get_mean(rec_avg_psnr_list)); # 'avgPSNR'
+		
+		# Write to file
+		row = dict(zip(fieldnames, fieldvalue));
+		if row:
+			writer.writerow(row);
+
+	# Detailed Report
+	try:
+		with open(OUTPUT_DIR + os.path.sep + 'REPORT_DETAIL.csv', 'rb') as f:
+			pass;
+	except IOError:
+		with open(OUTPUT_DIR + os.path.sep + 'REPORT_DETAIL.csv', 'wb') as f:
+			writer = csv.DictWriter(f, fieldnames = fieldnames);
+			writer.writeheader();
+			pass;
+	with open(OUTPUT_DIR + os.path.sep + 'REPORT_DETAIL.csv', 'a+b') as csvfile:
 		writer = csv.DictWriter(csvfile, fieldnames = fieldnames);
 		
 		#Create Field Value List
@@ -348,10 +376,11 @@ def STREAM(	STREAM_SRC,
 				key = fieldnames[i];
 				if row_count < len(fieldvalue_list[i]):
 					row[key] = fieldvalue_list[i][row_count];
-			if bool(row) == False:
+			if not row:
 				break;
+			# Write to file
 			writer.writerow(row);
 			row_count += 1;
-	
+
 	# Finished
 	info('\n*** Finished.\n');

@@ -24,7 +24,7 @@ from mininet.link import TCIntf;
 from mininet.clean import Cleanup;
 
 # Import SDN Utils
-from SDN_utils import makedirs_s, IP2INT, INT2IP;
+from SDN_utils import makedirs_s, get_mean, IP2INT, INT2IP;
 
 # Base Directory
 BASE_DIR = os.path.dirname(os.path.realpath(__file__));
