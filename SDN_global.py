@@ -97,7 +97,7 @@ gPacketConfig = {
 
 # Stream Default Configuration
 gStreamConfig = {
-	'SOURCE' : 'samples' + os.path.sep + 'sample1.avi',
+	'SOURCE' : 'videos' + os.path.sep + 'bus' + os.path.sep + 'bus000.avi',
 	'DESTINATION_COUNT' : 1,
 	'STREAM_IP' : IP2INT('234.0.0.1'),
 	'STREAM_PORT' : 5555,
