@@ -245,7 +245,7 @@ if gConfig['TOPOLOGY_TYPE'] != 4:
 		break;
 	while True:
 		try:
-			gConfig['SWITCH_LINK_SPEED'] = int(get_input('Enter switch-switch link speed (>= 1 & <= 1000) (in Mbps): ') or str(gConfig['SWITCH_LINK_SPEED']));
+			gConfig['SWITCH_LINK_SPEED'] = float(get_input('Enter switch-switch link speed (>= 1 & <= 1000) (in Mbps): ') or str(gConfig['SWITCH_LINK_SPEED']));
 		except ValueError:
 			info ('*** Error: Invalid Input\n');
 			if gArg['argv']:
@@ -263,7 +263,7 @@ if gConfig['TOPOLOGY_TYPE'] != 4:
 		break;
 while True:
 	try:
-		gConfig['HOST_LINK_SPEED'] = int(get_input('Enter host-switch link speed (>= 1 & <= 1000) (in Mbps): ') or str(gConfig['HOST_LINK_SPEED']));
+		gConfig['HOST_LINK_SPEED'] = float(get_input('Enter host-switch link speed (>= 1 & <= 1000) (in Mbps): ') or str(gConfig['HOST_LINK_SPEED']));
 	except ValueError:
 		info ('*** Error: Invalid Input\n');
 		if gArg['argv']:
