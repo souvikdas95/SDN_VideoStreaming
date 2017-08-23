@@ -41,7 +41,6 @@ gArg = {
 # Method to get config input from usable source
 def get_input(_str):
 	if gArg['argv']:
-		info('*** ' + _str + str(gArg['cur']) + '\n');
 		if gArg['cur'] < len(gArg['argv']) - 2:
 			gArg['cur'] += 1;
 			_input = gArg['argv'][gArg['cur']];
@@ -76,7 +75,7 @@ gConfig = {
 
 # Docker Default Configuration
 gDockerConfig = {
-	'ENABLE' : True,
+	'ENABLE' : False,
 	'IMAGE' : 'ubuntu:build_sdn',
 	'CPU_QUOTA' : -1,
 	'CPU_PERIOD' : None,

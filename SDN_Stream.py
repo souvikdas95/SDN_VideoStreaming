@@ -354,7 +354,4 @@ def STREAM(	STREAM_SRC,
 			row_count += 1;
 	
 	# Finished
-	info('\n*** Finished.');
-	if gArg['argv']:
-		Cleanup.cleanup();
-		sys.exit(0);
+	info('\n*** Finished.\n');

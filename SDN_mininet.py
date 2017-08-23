@@ -14,8 +14,6 @@ if __name__ == "__main__":
 	gArg['argv'] = sys.argv;
 	if len(gArg['argv']) < 2:
 		gArg['argv'] = None;
-	else:
-		gStreamConfig['SOURCE'] = gArg['argv'][-1];
 
 	# Initiate SDN Base Configuration
 	import SDN_config;

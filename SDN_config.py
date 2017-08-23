@@ -223,43 +223,44 @@ elif gConfig['TOPOLOGY_TYPE'] == 5:
 				sys.exit(0);
 			continue;
 		break;
-while True:
-	try:
-		temp = str.upper(get_input('Enable STP (T/F): ') or str(gConfig['USE_STP'])[0]);
-		if temp not in ['T', 'F']:
+if gConfig['TOPOLOGY_TYPE'] != 4:
+	while True:
+		try:
+			temp = str.upper(get_input('Enable STP (T/F): ') or str(gConfig['USE_STP'])[0]);
+			if temp not in ['T', 'F']:
+				info ('*** Error: Invalid Input\n');
+				if gArg['argv']:
+					info ('*** Check arg #' + str(gArg['cur']) + '\n');
+					Cleanup.cleanup();
+					sys.exit(0);
+				continue;
+		except:
 			info ('*** Error: Invalid Input\n');
 			if gArg['argv']:
 				info ('*** Check arg #' + str(gArg['cur']) + '\n');
 				Cleanup.cleanup();
 				sys.exit(0);
 			continue;
-	except:
-		info ('*** Error: Invalid Input\n');
-		if gArg['argv']:
-			info ('*** Check arg #' + str(gArg['cur']) + '\n');
-			Cleanup.cleanup();
-			sys.exit(0);
-		continue;
-	gConfig['USE_STP'] = (temp == 'T');
-	break;
-while True:
-	try:
-		gConfig['SWITCH_LINK_SPEED'] = int(get_input('Enter switch-switch link speed (>= 1 & <= 1000) (in Mbps): ') or str(gConfig['SWITCH_LINK_SPEED']));
-	except ValueError:
-		info ('*** Error: Invalid Input\n');
-		if gArg['argv']:
-			info ('*** Check arg #' + str(gArg['cur']) + '\n');
-			Cleanup.cleanup();
-			sys.exit(0);
-		continue;
-	if gConfig['SWITCH_LINK_SPEED'] < 1 or gConfig['SWITCH_LINK_SPEED'] > 1000:
-		info ('*** Error: Input out of range\n');
-		if gArg['argv']:
-			info ('*** Check arg #' + str(gArg['cur']) + '\n');
-			Cleanup.cleanup();
-			sys.exit(0);
-		continue;
-	break;
+		gConfig['USE_STP'] = (temp == 'T');
+		break;
+	while True:
+		try:
+			gConfig['SWITCH_LINK_SPEED'] = int(get_input('Enter switch-switch link speed (>= 1 & <= 1000) (in Mbps): ') or str(gConfig['SWITCH_LINK_SPEED']));
+		except ValueError:
+			info ('*** Error: Invalid Input\n');
+			if gArg['argv']:
+				info ('*** Check arg #' + str(gArg['cur']) + '\n');
+				Cleanup.cleanup();
+				sys.exit(0);
+			continue;
+		if gConfig['SWITCH_LINK_SPEED'] < 1 or gConfig['SWITCH_LINK_SPEED'] > 1000:
+			info ('*** Error: Input out of range\n');
+			if gArg['argv']:
+				info ('*** Check arg #' + str(gArg['cur']) + '\n');
+				Cleanup.cleanup();
+				sys.exit(0);
+			continue;
+		break;
 while True:
 	try:
 		gConfig['HOST_LINK_SPEED'] = int(get_input('Enter host-switch link speed (>= 1 & <= 1000) (in Mbps): ') or str(gConfig['HOST_LINK_SPEED']));
