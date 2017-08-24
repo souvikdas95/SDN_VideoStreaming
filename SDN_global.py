@@ -32,6 +32,12 @@ BASE_DIR = os.path.dirname(os.path.realpath(__file__));
 # Add BASE_DIR to PYTHONPATH
 sys.path.append(BASE_DIR);
 
+# Topology Directory
+TOPOLOGY_DIR = BASE_DIR + os.path.sep + 'topology';
+
+# Add TOPOLOGY_DIR to PYTHONPATH
+sys.path.append(TOPOLOGY_DIR);
+
 # Check for Commandline arguments
 gArg = {
 	'argv' : None,
@@ -97,12 +103,13 @@ gPacketConfig = {
 
 # Stream Default Configuration
 gStreamConfig = {
-	'SOURCE' : 'videos' + os.path.sep + 'bus' + os.path.sep + 'bus000.avi',
-	'DESTINATION_COUNT' : 1,
+	'VIDEO' : 'videos' + os.path.sep + 'bus' + os.path.sep + 'bus000.avi',
+	'DESTINATION_RATIO' : 0.25,
 	'STREAM_IP' : IP2INT('234.0.0.1'),
 	'STREAM_PORT' : 5555,
 	'NOISE_TYPE' : 1,
-	'NOISE_DESTINATION_PORT' : 65535,
+	'NOISE_RATIO' : 0.5,
+	'NOISE_PORT' : 65535,
 	'NOISE_DATA_RATE' : 32 * 1024,
 	'NOISE_PACKET_DELAY' : 364.2578125,
 	'SAP_PORT' : 49160,

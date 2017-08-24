@@ -20,7 +20,7 @@ class CustomCLI(CLI):
 			'argv' : None,
 			'cur' : 0,
 			'test' : 0,
-			'test_file' : 'SDN_StreamTests.txt',
+			'test_file' : None,
 		};
 		if gArg['argv']:
 			self.cliArg['test_file'] = gArg['argv'][-1] or self.cliArg['test_file'];
@@ -31,7 +31,7 @@ class CustomCLI(CLI):
 						self.cliArg['cur'] = 0;
 						self.cliArg['test'] += 1;
 						self.do_stream();
-			except:
+			except IOError:
 				info('*** Error: Couldn\'t open Stream test file: \'' + self.cliArg['test_file'] + '\'!\n');
 			Cleanup.cleanup();
 			sys.exit(0);
@@ -54,12 +54,13 @@ class CustomCLI(CLI):
 			info('\n\n****** STREAMING TEST #' + str(self.cliArg['test']) + '\n');
 
 		# Default Configuration for STREAM
-		SOURCE = gStreamConfig['SOURCE']
-		DESTINATION_COUNT = gStreamConfig['DESTINATION_COUNT'];
+		VIDEO = gStreamConfig['VIDEO']
+		DESTINATION_RATIO = gStreamConfig['DESTINATION_RATIO'];
 		STREAM_IP = gStreamConfig['STREAM_IP'];
 		STREAM_PORT = gStreamConfig['STREAM_PORT'];
+		NOISE_RATIO = gStreamConfig['NOISE_RATIO'];
 		NOISE_TYPE = gStreamConfig['NOISE_TYPE'];
-		NOISE_DESTINATION_PORT = gStreamConfig['NOISE_DESTINATION_PORT'];
+		NOISE_PORT = gStreamConfig['NOISE_PORT'];
 		NOISE_DATA_RATE = gStreamConfig['NOISE_DATA_RATE'];
 		NOISE_PACKET_DELAY = gStreamConfig['NOISE_PACKET_DELAY'];
 		SAP_PORT = gStreamConfig['SAP_PORT'];
@@ -67,7 +68,7 @@ class CustomCLI(CLI):
 		# Set Streaming Parameters
 		while True:
 			try:
-				SOURCE = os.path.abspath(self._get_input('Enter Stream Source file path: ') or SOURCE);
+				VIDEO = os.path.abspath(self._get_input('Enter Stream Source file path: ') or VIDEO);
 			except:
 				info ('*** Error: Couldn\'t open Stream Source file\n');
 				if self.cliArg['argv']:
@@ -77,15 +78,14 @@ class CustomCLI(CLI):
 			break;
 		while True:
 			try:
-				MAX_DESTINATION_COUNT = gMain['host_count'] - 1;
-				DESTINATION_COUNT = int(self._get_input('Enter number of destinations (>= 1 & <= ' + str(MAX_DESTINATION_COUNT) + '): ') or str(DESTINATION_COUNT));
+				DESTINATION_RATIO = float(self._get_input('Enter Destination Ratio: ') or str(DESTINATION_RATIO));
 			except ValueError:
 				info ('*** Error: Invalid Input\n');
 				if self.cliArg['argv']:
 					info ('*** Check arg #' + str(self.cliArg['cur']) + ' at Test #' + str(self.cliArg['test']) + ' in \'' + self.cliArg['test_file'] + '\'\n');
 					return;
 				continue;
-			if DESTINATION_COUNT < 1 or DESTINATION_COUNT > MAX_DESTINATION_COUNT:
+			if DESTINATION_RATIO < 0.0 or DESTINATION_RATIO > 1.0:
 				info ('*** Error: Input out of range\n');
 				if self.cliArg['argv']:
 					info ('*** Check arg #' + str(self.cliArg['cur']) + ' at Test #' + str(self.cliArg['test']) + ' in \'' + self.cliArg['test_file'] + '\'\n');
@@ -134,6 +134,22 @@ class CustomCLI(CLI):
 			break;
 		while True:
 			try:
+				NOISE_RATIO = float(self._get_input('Enter Noise Ratio: ') or str(NOISE_RATIO));
+			except ValueError:
+				info ('*** Error: Invalid Input\n');
+				if self.cliArg['argv']:
+					info ('*** Check arg #' + str(self.cliArg['cur']) + ' at Test #' + str(self.cliArg['test']) + ' in \'' + self.cliArg['test_file'] + '\'\n');
+					return;
+				continue;
+			if NOISE_RATIO < 0.0 or NOISE_RATIO > 1.0:
+				info ('*** Error: Input out of range\n');
+				if self.cliArg['argv']:
+					info ('*** Check arg #' + str(self.cliArg['cur']) + ' at Test #' + str(self.cliArg['test']) + ' in \'' + self.cliArg['test_file'] + '\'\n');
+					return;
+				continue;
+			break;
+		while True:
+			try:
 				NOISE_TYPE = int(self._get_input('Enter Noise Type (1:Broadcast, 2:Unicast): ') or str(NOISE_TYPE));
 			except ValueError:
 				info ('*** Error: Invalid Input\n');
@@ -150,14 +166,14 @@ class CustomCLI(CLI):
 			break;
 		while True:
 			try:
-				NOISE_DESTINATION_PORT = int(self._get_input('Enter Noise Destination Port (>= 1024 & <= 65535): ') or str(NOISE_DESTINATION_PORT));
+				NOISE_PORT = int(self._get_input('Enter Noise Destination Port (>= 1024 & <= 65535): ') or str(NOISE_PORT));
 			except ValueError:
 				info ('*** Error: Invalid Input\n');
 				if self.cliArg['argv']:
 					info ('*** Check arg #' + str(self.cliArg['cur']) + ' at Test #' + str(self.cliArg['test']) + ' in \'' + self.cliArg['test_file'] + '\'\n');
 					return;
 				continue;
-			if NOISE_DESTINATION_PORT < 1024 or NOISE_DESTINATION_PORT > 65535:
+			if NOISE_PORT < 1024 or NOISE_PORT > 65535:
 				info ('*** Error: Input out of range\n');
 				if self.cliArg['argv']:
 					info ('*** Check arg #' + str(self.cliArg['cur']) + ' at Test #' + str(self.cliArg['test']) + ' in \'' + self.cliArg['test_file'] + '\'\n');
@@ -201,23 +217,25 @@ class CustomCLI(CLI):
 		# Call STREAM method on Separate Thread
 		if self.cliArg['argv']:
 			STREAM(
-				SOURCE,
-				DESTINATION_COUNT,
+				VIDEO,
+				DESTINATION_RATIO,
 				STREAM_IP,
 				STREAM_PORT,
+				NOISE_RATIO,
 				NOISE_TYPE,
-				NOISE_DESTINATION_PORT,
+				NOISE_PORT,
 				NOISE_DATA_RATE,
 				NOISE_PACKET_DELAY,
 				SAP_PORT);
 		else:
 			t = threading.Thread(target = STREAM, args = (
-				SOURCE,
-				DESTINATION_COUNT,
+				VIDEO,
+				DESTINATION_RATIO,
 				STREAM_IP,
 				STREAM_PORT,
+				NOISE_RATIO,
 				NOISE_TYPE,
-				NOISE_DESTINATION_PORT,
+				NOISE_PORT,
 				NOISE_DATA_RATE,
 				NOISE_PACKET_DELAY,
 				SAP_PORT));
