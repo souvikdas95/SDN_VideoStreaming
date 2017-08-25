@@ -56,7 +56,7 @@ def get_input(_str):
 		_input = raw_input(_str);
 	return _input;
 
-# Outsourced Default Locals from __main__
+# Declare Outsourced Locals for __main__
 gMain = {
 	'switch_list' : [],
 	'switch_count' : 0,
@@ -77,6 +77,8 @@ gConfig = {
 	'USE_STP' : False,
 	'HOST_LINK_SPEED' : 1,
 	'SWITCH_LINK_SPEED' : 1,
+	# Only for Random
+	'RANDOM_TOTAL_HOST_COUNT' : 2,
 };
 
 # Docker Default Configuration

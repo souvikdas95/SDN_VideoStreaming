@@ -27,10 +27,10 @@ while True:
 		continue;
 	break;
 	
-# Host Count per Switch
+# Max. Hosts Per Switch
 while True:
 	try:
-		gConfig['HOST_COUNT_PER_SWITCH'] = int(get_input('Enter max. hosts per switch (>= 2): ') or str(gConfig['HOST_COUNT_PER_SWITCH']));
+		gConfig['HOST_COUNT_PER_SWITCH'] = int(get_input('Enter max. hosts per switch (>= 1): ') or str(gConfig['HOST_COUNT_PER_SWITCH']));
 	except ValueError:
 		info ('*** Error: Invalid Input\n');
 		if gArg['argv']:
@@ -38,7 +38,27 @@ while True:
 			Cleanup.cleanup();
 			sys.exit(0);
 		continue;
-	if gConfig['HOST_COUNT_PER_SWITCH'] < 2:
+	if gConfig['HOST_COUNT_PER_SWITCH'] < 1:
+		info ('*** Error: Input out of range\n');
+		if gArg['argv']:
+			info ('*** Check arg #' + str(gArg['cur']) + '\n');
+			Cleanup.cleanup();
+			sys.exit(0);
+		continue;
+	break;
+
+# Total Host Count in Topology
+while True:
+	try:
+		gConfig['RANDOM_TOTAL_HOST_COUNT'] = int(get_input('Enter Total Host Count in Topology (>= 2 & <= ' + str(gConfig['SWITCH_COUNT'] * gConfig['HOST_COUNT_PER_SWITCH']) + '): ') or str(gConfig['RANDOM_TOTAL_HOST_COUNT']));
+	except ValueError:
+		info ('*** Error: Invalid Input\n');
+		if gArg['argv']:
+			info ('*** Check arg #' + str(gArg['cur']) + '\n');
+			Cleanup.cleanup();
+			sys.exit(0);
+		continue;
+	if gConfig['RANDOM_TOTAL_HOST_COUNT'] < 2:
 		info ('*** Error: Input out of range\n');
 		if gArg['argv']:
 			info ('*** Check arg #' + str(gArg['cur']) + '\n');

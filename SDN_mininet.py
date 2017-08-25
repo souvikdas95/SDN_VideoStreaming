@@ -51,16 +51,34 @@ if __name__ == "__main__":
 							failMode = 'standalone' if (gConfig['USE_STP'] == True) else 'secure',
 							stp = gConfig['USE_STP']));
 
+	# Prepare Host Count per Switch
+	info('*** Preparing host count per switch for the Topology\n');
+	if gConfig['TOPOLOGY_TYPE'] == 5:
+		_remaining_switch_list = [x for x in gMain['switch_list']];
+		_remaining_host_count_in_switch = [gConfig['HOST_COUNT_PER_SWITCH']] * gMain['switch_count'];
+		_remaining_total_host_count = gConfig['RANDOM_TOTAL_HOST_COUNT'];
+		while _remaining_total_host_count > 0:
+			_rand_id = random.randrange(0, len(_remaining_switch_list)); # Select a Switch from Remaining Switch List (ID)
+			_id = int(_remaining_switch_list[_rand_id].name[1:]) - 1; # Retrieve its actual ID (assume switch name is of format 's<id + 1>')
+			_count = random.randrange(0, _remaining_host_count_in_switch[_id]) + 1;
+			if _count > _remaining_total_host_count:
+				_count = _remaining_total_host_count;
+			_remaining_host_count_in_switch[_id] -= _count;
+			if _remaining_host_count_in_switch[_id] < 1:
+				del _remaining_switch_list[_rand_id]; # Remove from Remaining Switch List
+			_remaining_total_host_count -= _count;
+		host_count_in_switch = map(lambda x: gConfig['HOST_COUNT_PER_SWITCH'] - x, _remaining_host_count_in_switch);
+	else:
+		_switch_list = gMain['switch_host_list'];
+		host_count_in_switch = [gConfig['HOST_COUNT_PER_SWITCH']] * gMain['switch_count'];
+
 	# Create Hosts
 	info('*** Creating hosts\n');
-	host_count_in_switch = gConfig['HOST_COUNT_PER_SWITCH'];
 	if gDockerConfig['ENABLE']:
 		gMain['host_volumes'].append(BASE_DIR + ':' + BASE_DIR);
-		for i in range(gConfig['SWITCH_COUNT']):
+		for i in range(gMain['switch_count']):
 			gMain['switch_host_list'].append([]);
-			if gConfig['TOPOLOGY_TYPE'] == 5:
-				host_count_in_switch = random.randint(0, gConfig['HOST_COUNT_PER_SWITCH']);
-			for j in range(host_count_in_switch):
+			for j in range(host_count_in_switch[i]):
 				gMain['host_count'] += 1;
 				h = net.addHost('d' + str(gMain['host_count']), ip = INT2IP(iter_ip),
 					cls = Docker,
@@ -76,11 +94,9 @@ if __name__ == "__main__":
 				gMain['host_list'].append(h);
 				iter_ip += 1;
 	else:
-		for i in range(gConfig['SWITCH_COUNT']):
+		for i in range(gMain['switch_count']):
 			gMain['switch_host_list'].append([]);
-			if gConfig['TOPOLOGY_TYPE'] == 5:
-				host_count_in_switch = random.randint(0, gConfig['HOST_COUNT_PER_SWITCH']);
-			for j in range(host_count_in_switch):
+			for j in range(host_count_in_switch[i]):
 				gMain['host_count'] += 1;
 				h = net.addHost('h' + str(gMain['host_count']), ip = INT2IP(iter_ip));
 				gMain['switch_host_list'][i].append(h);
@@ -90,32 +106,32 @@ if __name__ == "__main__":
 	# Create Switch - Switch Links
 	info('*** Creating Switch - Switch Links\n');
 	if gConfig['TOPOLOGY_TYPE'] == 1:
-		for i in range(gConfig['SWITCH_COUNT'] - 1):
+		for i in range(gMain['switch_count'] - 1):
 			gMain['switch_switch_link_list'].append(net.addLink(gMain['switch_list'][i], gMain['switch_list'][i + 1], cls = TCLink, Intf = TCIntf, fast = False));
 	elif gConfig['TOPOLOGY_TYPE'] == 2:
-		for i in range(gConfig['SWITCH_COUNT'] - 1):
+		for i in range(gMain['switch_count'] - 1):
 			gMain['switch_switch_link_list'].append(net.addLink(gMain['switch_list'][i], gMain['switch_list'][i + 1], cls = TCLink, Intf = TCIntf, fast = False));
-		gMain['switch_switch_link_list'].append(net.addLink(gMain['switch_list'][gConfig['SWITCH_COUNT'] - 1], gMain['switch_list'][0], cls = TCLink, Intf = TCIntf, fast = False));
+		gMain['switch_switch_link_list'].append(net.addLink(gMain['switch_list'][gMain['switch_count'] - 1], gMain['switch_list'][0], cls = TCLink, Intf = TCIntf, fast = False));
 	elif gConfig['TOPOLOGY_TYPE'] == 3:
-		for i in range(gConfig['SWITCH_COUNT'] - 1):
-			for j in range(i + 1, gConfig['SWITCH_COUNT']):
+		for i in range(gMain['switch_count'] - 1):
+			for j in range(i + 1, gMain['switch_count']):
 				gMain['switch_switch_link_list'].append(net.addLink(gMain['switch_list'][i], gMain['switch_list'][j], cls = TCLink, Intf = TCIntf, fast = False));
 	elif gConfig['TOPOLOGY_TYPE'] == 4:
 		pass; # Nothing to do with 1 Switch :V
 	elif gConfig['TOPOLOGY_TYPE'] == 5:
 		neighbor = {};
 		switch_switch_link_selection_list = list();
-		for i in range(gConfig['SWITCH_COUNT'] - 1):
+		for i in range(gMain['switch_count'] - 1):
 			if neighbor.has_key(gMain['switch_list'][i]) == False:
 				neighbor[gMain['switch_list'][i]] = set();
-			for j in range(i + 1, gConfig['SWITCH_COUNT']):
+			for j in range(i + 1, gMain['switch_count']):
 				if neighbor.has_key(gMain['switch_list'][j]) == False:
 					neighbor[gMain['switch_list'][j]] = set();
 				switch_switch_link_selection_list.append((i, j));
 		# Note: Max. Links to allocate via Random from list must
 		# always be less than Max. Global Switch links by an amount,
-		# equal to (gConfig['SWITCH_COUNT'] - 1).
-		switch_switch_link_selection_list = random.sample(switch_switch_link_selection_list, gConfig['SWITCH_GLOBAL_MAX_LINKS'] - (gConfig['SWITCH_COUNT'] - 1));
+		# equal to (gMain['switch_count'] - 1).
+		switch_switch_link_selection_list = random.sample(switch_switch_link_selection_list, gConfig['SWITCH_GLOBAL_MAX_LINKS'] - (gMain['switch_count'] - 1));
 		for (i, j) in switch_switch_link_selection_list:
 			gMain['switch_switch_link_list'].append(net.addLink(gMain['switch_list'][i], gMain['switch_list'][j], cls = TCLink, Intf = TCIntf, fast = False));
 			neighbor[gMain['switch_list'][i]].add(gMain['switch_list'][j]);
@@ -148,7 +164,7 @@ if __name__ == "__main__":
 	# Create Switch - Host Links
 	info('*** Creating Switch - Host Links\n');
 	switch_host_link_list = [];
-	for i in range(gConfig['SWITCH_COUNT']):
+	for i in range(gMain['switch_count']):
 		switch_host_link_list.append([]);
 		for j in range(len(gMain['switch_host_list'][i])):
 			switch_host_link_list[i].append(net.addLink(gMain['switch_list'][i], gMain['switch_host_list'][i][j], cls = TCLink, Intf = TCIntf, fast = False));
@@ -169,7 +185,7 @@ if __name__ == "__main__":
 	# Configure Traffic Control on Switch - Host Interfaces
 	info('*** Configuring Traffic Control on Switch - Host Interfaces\n');
 	setLogLevel('error');
-	for i in range(gConfig['SWITCH_COUNT']):
+	for i in range(gMain['switch_count']):
 		for j in range(len(switch_host_link_list[i])):
 			switch_host_link_list[i][j].intf1.config(bw = gConfig['HOST_LINK_SPEED']);
 			switch_host_link_list[i][j].intf2.config(bw = gConfig['HOST_LINK_SPEED']);
