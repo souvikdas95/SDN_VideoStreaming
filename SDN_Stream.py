@@ -221,7 +221,10 @@ def STREAM(	VIDEO,
 
 	# Process PSNR for each Recording
 	info('\n*** Processing PSNR Results . . . ');
+	rec_avg_mse_list = [];
 	rec_avg_psnr_list = [];
+	rec_avg_mse_mean = 0.0;
+	rec_avg_psnr_mean = 0.0;
 	frame_count_dest = [];
 	for i in range(destination_count):
 		dest_host_list[i].cmd(	'ffmpeg -i \'' + REC_DIR + os.path.sep + 'recording_' + str(i) + '.ts\' '
@@ -251,12 +254,18 @@ def STREAM(	VIDEO,
 				avg_psnr = 0.0;
 			else:
 				avg_mseavg = avg_mseavg / frame_count;
-				if avg_mseavg == 0:
-					avg_psnr = float('inf'); # Make sure to not use this value for calculation anywhere!
-				else:
+				try:
 					avg_psnr = 10 * math.log10(255 * 255 / avg_mseavg);	# Assuming BitDepth is fixed at 8-bit
+				except:
+					avg_psnr = float('inf'); # Make sure to not use this value for calculation anywhere!
+			rec_avg_mse_list.append(avg_mseavg);
 			rec_avg_psnr_list.append(avg_psnr);
 			frame_count_dest.append(frame_count);
+	rec_avg_mse_mean = get_mean(rec_avg_mse_list);
+	try:
+		rec_avg_psnr_mean = 10 * math.log10(255 * 255 / rec_avg_mse_mean);	# Assuming BitDepth is fixed at 8-bit
+	except:
+		rec_avg_psnr_mean = float('inf'); # Make sure to not use this value for calculation anywhere!
 		
 	# Process Packets Sent/Received
 	info('\n*** Processing PCAP Results . . . ');
@@ -350,7 +359,7 @@ def STREAM(	VIDEO,
 		fieldvalue.append(get_mean(frame_count_dest)); # 'FramesRx'
 		fieldvalue.append(packets_sent); # 'PacketsTx'
 		fieldvalue.append(get_mean(packets_recv_list)); # 'PacketsRx'
-		fieldvalue.append(get_mean(rec_avg_psnr_list)); # 'avgPSNR'
+		fieldvalue.append(rec_avg_psnr_mean); # 'avgPSNR'
 		
 		# Write to file
 		row = dict(zip(fieldnames, fieldvalue));

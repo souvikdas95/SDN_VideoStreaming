@@ -20,4 +20,5 @@ INT2IP = lambda n: socket.inet_ntoa(struct.pack('!I', n));					# Integer to IP A
 def get_mean(_list):
 	if not _list:
 		return 0.0;
+	_list = map(lambda x: x if x >= 0 else 0, _list);	# Force -ve Values to Zero (Error Codes)
 	return sum(_list) / len(_list);
