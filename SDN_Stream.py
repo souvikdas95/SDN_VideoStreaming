@@ -249,21 +249,23 @@ def STREAM(	VIDEO,
 				except ValueError:
 					mseavg = sys.float_info.max;
 				avg_mseavg += mseavg;
+			# Assuming BitDepth is fixed at 8-bit
 			if frame_count == 0:
-				avg_mseavg = sys.float_info.max;
-				avg_psnr = 0.0;
+				avg_mseavg = 255 * 255;
 			else:
 				avg_mseavg = avg_mseavg / frame_count;
-				try:
-					avg_psnr = 10 * math.log10(255 * 255 / avg_mseavg);	# Assuming BitDepth is fixed at 8-bit
-				except:
-					avg_psnr = float('inf'); # Make sure to not use this value for calculation anywhere!
+				if avg_mseavg > 255 * 255:
+					avg_mseavg = 255 * 255;
+			try:
+				avg_psnr = 10 * math.log10(255 * 255 / avg_mseavg);
+			except:
+				avg_psnr = float('inf'); # Make sure to not use this value for calculation anywhere!
 			rec_avg_mse_list.append(avg_mseavg);
 			rec_avg_psnr_list.append(avg_psnr);
 			frame_count_dest.append(frame_count);
 	rec_avg_mse_mean = get_mean(rec_avg_mse_list);
 	try:
-		rec_avg_psnr_mean = 10 * math.log10(255 * 255 / rec_avg_mse_mean);	# Assuming BitDepth is fixed at 8-bit
+		rec_avg_psnr_mean = 10 * math.log10(255 * 255 / rec_avg_mse_mean);
 	except:
 		rec_avg_psnr_mean = float('inf'); # Make sure to not use this value for calculation anywhere!
 		
