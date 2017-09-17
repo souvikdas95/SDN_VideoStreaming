@@ -20,13 +20,14 @@ for i in source:
 		for k in noise_type:
 			for l in noise_value[k]:
 				line=(	"'"+str(i)+"' "+
-						"'' "+
-						"'' "+
 						"'"+str(j)+"' "+
+						"'' "+
+						"'' "+
 						"'"+str(noise_ratio[j])+"' "+
 						"'"+str(k)+"' "+
 						"'' "+
 						"'"+str(l)+"' "+
+						"'' "+
 						"''")
 				file_object.write(line+"\n")
 
