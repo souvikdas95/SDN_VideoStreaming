@@ -25,31 +25,33 @@ random_switch_link_speed=[4,8,16,32]
 random_hosst_link_speed=[10]
 random_stp_option=['T','F']
 
+application_test_cases_file = "test_cases/application_test_cases.txt"
+
 file_object=open("data_plane_test_cases.txt",'w')
 if 1 in topology:
 	for i in bus_switch_count:
 		for j in bus_host_per_switch:
 			for k in bus_switch_link_speed:
 				for l  in bus_hosst_link_speed:
-					line="'1' " + "'"+str(i)+"' "+"'"+str(j)+"' "+"'"+str(k)+"' "+"'"+str(l)+"'"
+					line="'1' " + "'"+str(i)+"' "+"'"+str(j)+"' "+"'"+str(k)+"' "+"'"+str(l)+"' '"+application_test_cases_file+"'"
 					file_object.write(line+"\n")
 if 2 in topology:
 	for i in ring_switch_count:
 		for j in ring_host_per_switch:
 			for k in ring_switch_link_speed:
 				for l  in ring_hosst_link_speed:
-					line="'2' " + "'"+str(i)+"' "+"'"+str(j)+"' "+"'"+str(k)+"' "+"'"+str(l)+"'"
+					line="'2' " + "'"+str(i)+"' "+"'"+str(j)+"' "+"'"+str(k)+"' "+"'"+str(l)+"' '"+application_test_cases_file+"'"
 					file_object.write(line+"\n")
 if 3 in topology:
 	for i in mesh_switch_count:
 		for j in mesh_host_per_switch:
 			for k in mesh_switch_link_speed:
 				for l  in mesh_hosst_link_speed:
-					line="'3' " + "'"+str(i)+"' "+"'"+str(j)+"' "+"'"+str(k)+"' "+"'"+str(l)+"' "+"'F'"
+					line="'3' " + "'"+str(i)+"' "+"'"+str(j)+"' "+"'"+str(k)+"' "+"'"+str(l)+"' "+"'F' '"+application_test_cases_file+"'"
 					file_object.write(line+"\n")
 if 4 in topology:
 	for i in star_host_count:
-		line="'4' " + "'"+str(i)+"'"
+		line="'4' " + "'"+str(i)+"' '"+application_test_cases_file+"'"
 		file_object.write(line+"\n")
 
 if 5 in topology:
@@ -58,6 +60,6 @@ if 5 in topology:
 			for k in random_switch_link_speed:
 				for l  in random_hosst_link_speed:
 					for m in random_stp_option:
-						line="'5' " + "'"+str(i)+"' "+"'"+str(j)+"' "+"'"+str(random_total_count[i])+"' "+"'"+str(random_switch_max_links[i])+"' "+"'"+str(k)+"' "+"'"+str(l)+"' "+"'"+str(m)+"'"
+						line="'5' " + "'"+str(i)+"' "+"'"+str(j)+"' "+"'"+str(random_total_count[i])+"' "+"'"+str(random_switch_max_links[i])+"' "+"'"+str(k)+"' "+"'"+str(l)+"' "+"'"+str(m)+"' '"+application_test_cases_file+"'"
 						file_object.write(line+"\n")
 file_object.close()
