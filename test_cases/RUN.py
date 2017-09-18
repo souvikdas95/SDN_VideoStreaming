@@ -20,10 +20,13 @@ mnPid = None;
 
 def PostCleanup():
 	print("*** Performing Post-Process Cleanup");
-	if fldPid is not None:
-		os.kill(fldPid, signal.SIGKILL);
-	if mnPid is not None:
-		os.kill(mnPid, signal.SIGKILL);
+	try:
+		if fldPid is not None:
+			os.kill(fldPid, signal.SIGKILL);
+		if mnPid is not None:
+			os.kill(mnPid, signal.SIGKILL);
+	except:
+		pass;
 	sys.exit(0);
 atexit.register(PostCleanup);
 signal.signal(signal.SIGABRT, PostCleanup);
