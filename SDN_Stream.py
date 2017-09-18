@@ -321,6 +321,9 @@ def STREAM(	VIDEO,
 					'Hosts#',
 					'Sw-Sw LinkSpeed',
 					'Sw-Host LinkSpeed',
+					'DestinationRatio',
+					'NoiseRatio',
+					'NoiseSrc',
 					'Sources',
 					'Destinations',
 					'NoiseType',
@@ -352,6 +355,9 @@ def STREAM(	VIDEO,
 		fieldvalue.append(len(gMain['host_list'])); # 'Hosts#'
 		fieldvalue.append(gConfig['SWITCH_LINK_SPEED']); # 'Switch-Switch Link Speed'
 		fieldvalue.append(gConfig['HOST_LINK_SPEED']); # 'Switch-Host Link Speed'
+		fieldvalue.append(DESTINATION_RATIO); # 'DestinationRatio'
+		fieldvalue.append(NOISE_RATIO); # 'NoiseRatio'
+		fieldvalue.append(len(noise_host_list)); # 'NoiseSrc'
 		fieldvalue.append(source_host.name); # 'Sources'
 		fieldvalue.append(len(dest_host_list)); # 'Destinations'
 		fieldvalue.append(NOISE_TYPE); # 'NoiseType'
@@ -388,6 +394,9 @@ def STREAM(	VIDEO,
 		fieldvalue_list.append([len(gMain['host_list'])]); # Vertical Format 'Hosts#'
 		fieldvalue_list.append([gConfig['SWITCH_LINK_SPEED']]); # Vertical Format 'Switch-Switch Link Speed'
 		fieldvalue_list.append([gConfig['HOST_LINK_SPEED']]); # Vertical Format 'Switch-Host Link Speed'
+		fieldvalue_list.append([DESTINATION_RATIO]); # Vertical Format 'DestinationRatio'
+		fieldvalue_list.append([NOISE_RATIO]); # Vertical Format 'NoiseRatio'
+		fieldvalue_list.append(noise_host_list); # Vertical Format 'NoiseSrc'
 		fieldvalue_list.append([source_host.name]); # Vertical Format 'Sources'
 		fieldvalue_list.append(dest_host_list); # Vertical Format 'Destinations'
 		fieldvalue_list.append([NOISE_TYPE]); # Vertical Format 'NoiseType'
