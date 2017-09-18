@@ -5,7 +5,7 @@
 """
 
 # System Imports
-import sys, os, threading, time, math, random, csv;
+import sys, os, threading, time, math, random, csv, signal, atexit;
 
 # Suppress .pyc generation
 sys.dont_write_bytecode = True;

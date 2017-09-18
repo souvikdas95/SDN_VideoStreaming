@@ -10,6 +10,19 @@ from SDN_global import *;
 if __name__ == "__main__":
 	""" This is the Main
 	    Method of SDN_VideoStreaming """
+	# Force Cleanup at Exit
+	def SDN_Cleanup():
+		print("*** Performing Cleanup");
+		try:
+			Cleanup.cleanup();
+		except:
+			pass;
+		sys.exit(0);
+	atexit.register(SDN_Cleanup);
+	signal.signal(signal.SIGABRT, SDN_Cleanup);
+	signal.signal(signal.SIGSEGV, SDN_Cleanup);
+	signal.signal(signal.SIGTERM, SDN_Cleanup);
+	    
 	# Get Argv
 	gArg['argv'] = sys.argv;
 	if len(gArg['argv']) < 2:
@@ -202,7 +215,3 @@ if __name__ == "__main__":
 	# Stop Network
 	info('*** Stopping Network\n');
 	net.stop();
-
-	# Cleanup
-	info('*** Cleaning Up\n');
-	Cleanup.cleanup();
