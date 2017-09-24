@@ -175,7 +175,7 @@ def STREAM(	VIDEO,
 	def _record(_dest_host, _record_args):
 		_last = time.time();
 		_count = 0;
-		while _STREAM_COMPLETED == False and time.time() - _last < 30.0 and _count < 10:
+		while _STREAM_COMPLETED == False and time.time() - _last < 30.0 and _count < 5:
 			if _count > 0:
 				warn('\n*** WARNING: Recording Failed to Start for \'' + _dest_host.name + '\'. Retry #' + str(_count) + ' . . .');
 			_last = time.time();
