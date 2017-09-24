@@ -22,3 +22,13 @@ def get_mean(_list):
 		return 0.0;
 	_list = map(lambda x: x if x >= 0 else 0, _list);	# Force -ve Values to Zero (Error Codes)
 	return sum(_list) / len(_list);
+
+# Find Median
+def get_median(_list):
+	if not _list:
+		return 0.0;
+	_list = sorted(map(lambda x: x if x >= 0 else 0, _list));	# Force -ve Values to Zero (Error Codes) and Sort the list
+	_len = len(_list);
+	if (_len % 2) == 1:
+		return _list[_len / 2];
+	return (_list[(_len / 2) - 1] + _list[_len / 2]) / 2;
