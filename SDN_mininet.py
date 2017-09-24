@@ -9,24 +9,30 @@ from SDN_global import *;
 
 if __name__ == "__main__":
 	""" This is the Main
-	    Method of SDN_VideoStreaming """
+		Method of SDN_VideoStreaming """
 	# Force Cleanup at Exit
-	def SDN_Cleanup():
-		print("*** Performing Cleanup");
+	def SDN_Cleanup(*args, **kwargs):
+		print("*** Performing SDN_Cleanup");
+		if gCleanup[0]:
+			return;
 		try:
 			Cleanup.cleanup();
 		except:
 			pass;
+		gCleanup[0] = True;
 		sys.exit(0);
 	atexit.register(SDN_Cleanup);
 	signal.signal(signal.SIGABRT, SDN_Cleanup);
 	signal.signal(signal.SIGSEGV, SDN_Cleanup);
 	signal.signal(signal.SIGTERM, SDN_Cleanup);
-	    
+		
 	# Get Argv
 	gArg['argv'] = sys.argv;
 	if len(gArg['argv']) < 2:
 		gArg['argv'] = None;
+
+	# Set Logger Defaults
+	setLogLevel('info');
 
 	# Initiate SDN Base Configuration
 	import SDN_config;
@@ -45,7 +51,6 @@ if __name__ == "__main__":
 	from SDN_CustomCLI import CustomCLI;
 
 	# Create Mininet Instance
-	setLogLevel('info');
 	net = Mininet(topo = None, controller = None, build = False, waitConnected = True);
 
 	# Connect to Controller

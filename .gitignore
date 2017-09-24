@@ -2,4 +2,4 @@ target/
 output/
 test/
 *.pyc
-
+*.log

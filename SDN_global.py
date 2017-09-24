@@ -38,6 +38,9 @@ TOPOLOGY_DIR = BASE_DIR + os.path.sep + 'topology';
 # Add TOPOLOGY_DIR to PYTHONPATH
 sys.path.append(TOPOLOGY_DIR);
 
+# Check for redundant Cleanup
+gCleanup = [False];
+
 # Check for Commandline arguments
 gArg = {
 	'argv' : None,
