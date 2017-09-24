@@ -38,6 +38,7 @@ mnLog = open(mnLog_file, "w");
 
 data_plane_test_cases_file = "test_cases" + os.path.sep + "data_plane_test_cases.txt";
 
+fldLog_rfd, fldLog_wfd = os.pipe();
 mnLog_rfd, mnLog_wfd = os.pipe();
 
 gCleanup = [False];
@@ -68,7 +69,25 @@ signal.signal(signal.SIGINT, PostCleanup);
 signal.signal(signal.SIGSEGV, PostCleanup);
 signal.signal(signal.SIGTERM, PostCleanup);
 
-def mnLog_output():
+def fldLog_output(*args, **kwargs):
+	_poller = poll();
+	_poller.register(fldLog_rfd, POLLIN);
+	while True:
+		try:
+			if (not fldLog) or fldLog.closed:
+				break;
+			if not _poller.poll(1000):
+				continue;
+			_output = os.read(fldLog_rfd, 1024);
+			if _output != '':
+				fldLog.write(_output);
+				fldLog.flush();
+			time.sleep(0.1);
+		except:
+			pass;
+threading.Thread(target=fldLog_output, args=()).start();
+
+def mnLog_output(*args, **kwargs):
 	_poller = poll();
 	_poller.register(mnLog_rfd, POLLIN);
 	while True:
@@ -92,7 +111,8 @@ with open(data_plane_test_cases_file, "r") as file_object:
 	for line in file_object:
 		def _fld_thread_fn(*args, **kwargs):
 			print("*** Starting Floodlight Controller");
-			fldProc = Popen(fldCmd, cwd = fldPath, stdout=fldLog, stderr=STDOUT, stdin=None, close_fds=True);
+			fldProc = Popen(fldCmd, cwd = fldPath, stdout=fldLog_wfd, stderr=STDOUT, stdin=PIPE, close_fds=True);
+			fldProc.stdin.close();
 			fldPid[0] = fldProc.pid;
 			fldProc.wait();
 			print("*** Floodlight Controller Stopped!");
@@ -102,7 +122,8 @@ with open(data_plane_test_cases_file, "r") as file_object:
 		def _mn_thread_fn(*args, **kwargs):
 			print("*** Starting Mininet");
 			mnCmd = shlex.split("python SDN_mininet.py " + line);
-			mnProc = Popen(mnCmd, cwd = mnPath, stdout=mnLog_wfd, stderr=STDOUT, stdin=None, close_fds=True);
+			mnProc = Popen(mnCmd, cwd = mnPath, stdout=mnLog_wfd, stderr=STDOUT, stdin=PIPE, close_fds=True);
+			mnProc.stdin.close();
 			mnPid[0] = mnProc.pid;
 			mnProc.wait();
 			print("*** Mininet Stopped!");
