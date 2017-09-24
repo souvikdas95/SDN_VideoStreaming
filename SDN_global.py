@@ -71,13 +71,14 @@ gMain = {
 gConfig = {
 	'TOPOLOGY_LIST' : ['Bus', 'Ring', 'Mesh', 'Star', 'Random'],
 	'TOPOLOGY_TYPE' : 1,
+	# All Config Params
 	'SWITCH_COUNT' : 4,
 	'HOST_COUNT_PER_SWITCH' : 2,
-	'SWITCH_GLOBAL_MAX_LINKS' : 3,
 	'USE_STP' : False,
-	'HOST_LINK_SPEED' : 1,
 	'SWITCH_LINK_SPEED' : 1,
-	# Only for Random
+	'HOST_LINK_SPEED' : 1,
+	# Random Config Params
+	'RANDOM_SWITCH_GLOBAL_MAX_LINKS' : 3,
 	'RANDOM_TOTAL_HOST_COUNT' : 2,
 };
 

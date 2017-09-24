@@ -144,7 +144,7 @@ if __name__ == "__main__":
 		# Note: Max. Links to allocate via Random from list must
 		# always be less than Max. Global Switch links by an amount,
 		# equal to (gMain['switch_count'] - 1).
-		switch_switch_link_selection_list = random.sample(switch_switch_link_selection_list, gConfig['SWITCH_GLOBAL_MAX_LINKS'] - (gMain['switch_count'] - 1));
+		switch_switch_link_selection_list = random.sample(switch_switch_link_selection_list, gConfig['RANDOM_SWITCH_GLOBAL_MAX_LINKS'] - (gMain['switch_count'] - 1));
 		for (i, j) in switch_switch_link_selection_list:
 			gMain['switch_switch_link_list'].append(net.addLink(gMain['switch_list'][i], gMain['switch_list'][j], cls = TCLink, Intf = TCIntf, fast = False));
 			neighbor[gMain['switch_list'][i]].add(gMain['switch_list'][j]);

@@ -34,3 +34,27 @@ while True:
 # Enable STP
 # Enabling STP in 1 Switch is no use.
 gConfig['USE_STP'] = False;
+
+# Switch-Switch Link speed
+# With 1 switch, this configuration doesn't matter
+gConfig['SWITCH_LINK_SPEED'] = 1;
+
+# Host-Switch link speed
+while True:
+	try:
+		gConfig['HOST_LINK_SPEED'] = float(get_input('Enter host-switch link speed (>= 1 & <= 1000) (in Mbps): ') or str(gConfig['HOST_LINK_SPEED']));
+	except ValueError:
+		info ('*** Error: Invalid Input\n');
+		if gArg['argv']:
+			info ('*** Check arg #' + str(gArg['cur']) + '\n');
+			Cleanup.cleanup();
+			sys.exit(0);
+		continue;
+	if gConfig['HOST_LINK_SPEED'] < 1 or gConfig['HOST_LINK_SPEED'] > 1000:
+		info ('*** Error: Input out of range\n');
+		if gArg['argv']:
+			info ('*** Check arg #' + str(gArg['cur']) + '\n');
+			Cleanup.cleanup();
+			sys.exit(0);
+		continue;
+	break;

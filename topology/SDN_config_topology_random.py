@@ -28,6 +28,7 @@ while True:
 	break;
 	
 # Max. Hosts Per Switch
+# Note: No need to use separate config for RANDOM version
 while True:
 	try:
 		gConfig['HOST_COUNT_PER_SWITCH'] = int(get_input('Enter max. hosts per switch (>= 1): ') or str(gConfig['HOST_COUNT_PER_SWITCH']));
@@ -70,7 +71,7 @@ while True:
 # Switch Global Max Links
 while True:
 	try:
-		gConfig['SWITCH_GLOBAL_MAX_LINKS'] = int(get_input('Enter Global max. Switch-Switch links (>= ' + str(gConfig['SWITCH_COUNT'] - 1) + ' & <= ' + str((gConfig['SWITCH_COUNT'] - 1) * gConfig['SWITCH_COUNT'] / 2) + '): ') or str(2 * (gConfig['SWITCH_COUNT'] - 1)));
+		gConfig['RANDOM_SWITCH_GLOBAL_MAX_LINKS'] = int(get_input('Enter Global max. Switch-Switch links (>= ' + str(gConfig['SWITCH_COUNT'] - 1) + ' & <= ' + str((gConfig['SWITCH_COUNT'] - 1) * gConfig['SWITCH_COUNT'] / 2) + '): ') or str(2 * (gConfig['SWITCH_COUNT'] - 1)));
 	except ValueError:
 		info ('*** Error: Invalid Input\n');
 		if gArg['argv']:
@@ -78,7 +79,7 @@ while True:
 			Cleanup.cleanup();
 			sys.exit(0);
 		continue;
-	if gConfig['SWITCH_GLOBAL_MAX_LINKS'] < (gConfig['SWITCH_COUNT'] - 1) or gConfig['SWITCH_GLOBAL_MAX_LINKS'] > ((gConfig['SWITCH_COUNT'] - 1) * gConfig['SWITCH_COUNT'] / 2):
+	if gConfig['RANDOM_SWITCH_GLOBAL_MAX_LINKS'] < (gConfig['SWITCH_COUNT'] - 1) or gConfig['RANDOM_SWITCH_GLOBAL_MAX_LINKS'] > ((gConfig['SWITCH_COUNT'] - 1) * gConfig['SWITCH_COUNT'] / 2):
 		info ('*** Error: Input out of range\n');
 		if gArg['argv']:
 			info ('*** Check arg #' + str(gArg['cur']) + '\n');

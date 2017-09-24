@@ -57,11 +57,11 @@ def STREAM(	VIDEO,
 	_SOURCE_SPLIT = os.path.splitext(SOURCE_FILENAME);
 	V_NAME = _SOURCE_SPLIT[0];
 	V_EXT = _SOURCE_SPLIT[1];
-	version = 1;
+	V_VERSION = 1;
 	STREAM_DESTDIR = OUTPUT_DIR + os.path.sep + V_NAME;
-	while os.path.exists(STREAM_DESTDIR + '_v' + str(version)) is True:
-		version = version + 1;
-	STREAM_DESTDIR = STREAM_DESTDIR + '_v' + str(version);
+	while os.path.exists(STREAM_DESTDIR + '_v' + str(V_VERSION)) is True:
+		V_VERSION = V_VERSION + 1;
+	STREAM_DESTDIR = STREAM_DESTDIR + '_v' + str(V_VERSION);
 	makedirs_s(STREAM_DESTDIR);
 	LOGS_DIR = STREAM_DESTDIR + os.path.sep + 'logs';
 	makedirs_s(LOGS_DIR);
@@ -114,7 +114,7 @@ def STREAM(	VIDEO,
 		sap_client_command_args_end = (	'\'' + source_host.IP(intf = source_host.defaultIntf()) + '\' '
 										'\'' + str(SAP_PORT) + '\' '
 										'\'' + SDP_DIR + os.path.sep + V_NAME + '_destination_' + str(i) + '.sdp\' '
-										'> \'' + LOGS_DIR + os.path.sep + 'SAP_server.log\' 2>&1');
+										'> \'' + LOGS_DIR + os.path.sep + 'SAP_client_' + str(i) + '.log\' 2>&1');
 		t = threading.Thread(target=_sap_client_command, args=(dest_host_list[i], sap_client_command_args_init + sap_client_command_args_end));
 		t.start();
 		thread_sap_client_list.append(t);
@@ -293,42 +293,53 @@ def STREAM(	VIDEO,
 			packets_recv = -1; # error
 		packets_recv_list.append(packets_recv);
 
-	# Retrieve Noise Rate
-	info('\n*** Retrieving Noise Rate . . . ');
-	try:
-		with open(LOGS_DIR + os.path.sep + 'noise_udp' + '.log', 'r') as f:
-			pass;
-	except IOError:
-		with open(LOGS_DIR + os.path.sep + 'noise_udp' + '.log', 'w') as f:
-			pass;
-	with open(LOGS_DIR + os.path.sep + 'noise_udp' + '.log', 'r+') as f: 
-		content = f.readlines();
-		noise_rate = 0.0;
-		for line in content:
-			text = line.split(' ');
-			if text[0] == 'DATA_RATE':
-				try:
-					noise_rate = float(text[1]);
-				except ValueError:
-					noise_rate = -1;
-				break;
+	# Retrieve Noise Rate (Not Required - Only for Testing)
+	# info('\n*** Retrieving Noise Rate . . . ');
+	# try:
+	# 	with open(LOGS_DIR + os.path.sep + 'noise_udp' + '.log', 'r') as f:
+	# 		pass;
+	# except IOError:
+	# 	with open(LOGS_DIR + os.path.sep + 'noise_udp' + '.log', 'w') as f:
+	# 		pass;
+	# with open(LOGS_DIR + os.path.sep + 'noise_udp' + '.log', 'r+') as f: 
+	# 	content = f.readlines();
+	# 	noise_rate = 0.0;
+	# 	for line in content:
+	# 		text = line.split(' ');
+	# 		if text[0] == 'DATA_RATE':
+	# 			try:
+	# 				noise_rate = float(text[1]);
+	# 			except ValueError:
+	# 				noise_rate = -1;
+	# 			break;
 	
 	# Create Report
 	info('\n*** Generating Report . . . ');
 	fieldnames = [	'ID',
-					'Topology',
-					'Switch#',
-					'Hosts#',
-					'Sw-Sw LinkSpeed',
-					'Sw-Host LinkSpeed',
-					'DestinationRatio',
-					'NoiseRatio',
-					'NoiseSrc',
-					'Sources',
-					'Destinations',
-					'NoiseType',
-					'NoiseRate',
+					'Config_TOPOLOGY_TYPE',
+					'Config_SWITCH_COUNT',
+					'Config_HOST_COUNT_PER_SWITCH',
+					'Config_USE_STP',
+					'Config_SWITCH_LINK_SPEED',
+					'Config_HOST_LINK_SPEED',
+					'Config_RANDOM_SWITCH_GLOBAL_MAX_LINKS',
+					'Config_RANDOM_TOTAL_HOST_COUNT',
+					'StreamConfig_VIDEO',
+					'StreamConfig_DESTINATION_RATIO',
+					'StreamConfig_STREAM_IP',
+					'StreamConfig_STREAM_PORT',
+					'StreamConfig_NOISE_TYPE',
+					'StreamConfig_NOISE_RATIO',
+					'StreamConfig_NOISE_PORT',
+					'StreamConfig_NOISE_DATA_RATE',
+					'StreamConfig_NOISE_PACKET_DELAY',
+					'StreamConfig_SAP_PORT',
 					'Duration',
+					'TotalSwitchCount',
+					'TotalHostCount',
+					'NoiseHosts',
+					'SourceHosts',
+					'DestinationHosts',
 					'FramesTx',
 					'FramesRx',
 					'PacketsTx',
@@ -349,20 +360,31 @@ def STREAM(	VIDEO,
 		
 		#Create Field Value List
 		fieldvalue = []
-		fieldvalue.append(V_NAME + '_v' + str(version));
-		fieldvalue.append(gConfig['TOPOLOGY_LIST'][gConfig['TOPOLOGY_TYPE'] - 1]); # 'Topology'
-		fieldvalue.append(len(gMain['switch_list'])); # 'Switches#'
-		fieldvalue.append(len(gMain['host_list'])); # 'Hosts#'
-		fieldvalue.append(gConfig['SWITCH_LINK_SPEED']); # 'Switch-Switch Link Speed'
-		fieldvalue.append(gConfig['HOST_LINK_SPEED']); # 'Switch-Host Link Speed'
-		fieldvalue.append(DESTINATION_RATIO); # 'DestinationRatio'
-		fieldvalue.append(NOISE_RATIO); # 'NoiseRatio'
-		fieldvalue.append(len(noise_host_list)); # 'NoiseSrc'
-		fieldvalue.append(source_host.name); # 'Sources'
-		fieldvalue.append(len(dest_host_list)); # 'Destinations'
-		fieldvalue.append(NOISE_TYPE); # 'NoiseType'
-		fieldvalue.append(noise_rate); # 'NoiseRate'
+		fieldvalue.append(V_NAME + '_v' + str(V_VERSION)); # 'ID'
+		fieldvalue.append(gConfig['TOPOLOGY_TYPE']); # 'Config_TOPOLOGY_TYPE'
+		fieldvalue.append(gConfig['SWITCH_COUNT']); # 'Config_SWITCH_COUNT'
+		fieldvalue.append(gConfig['HOST_COUNT_PER_SWITCH']); # 'Config_HOST_COUNT_PER_SWITCH'
+		fieldvalue.append(gConfig['USE_STP']); # 'Config_USE_STP'
+		fieldvalue.append(gConfig['SWITCH_LINK_SPEED']); # 'Config_SWITCH_LINK_SPEED'
+		fieldvalue.append(gConfig['HOST_LINK_SPEED']); # 'Config_HOST_LINK_SPEED'
+		fieldvalue.append(gConfig['RANDOM_SWITCH_GLOBAL_MAX_LINKS'] if (gConfig['TOPOLOGY_TYPE'] == 5) else -1); # 'Config_RANDOM_SWITCH_GLOBAL_MAX_LINKS'
+		fieldvalue.append(gConfig['RANDOM_TOTAL_HOST_COUNT'] if (gConfig['TOPOLOGY_TYPE'] == 5) else -1); # 'Config_RANDOM_TOTAL_HOST_COUNT'
+		fieldvalue.append(gStreamConfig['VIDEO']); # 'StreamConfig_VIDEO'
+		fieldvalue.append(gStreamConfig['DESTINATION_RATIO']); # 'StreamConfig_DESTINATION_RATIO'
+		fieldvalue.append(INT2IP(gStreamConfig['STREAM_IP'])); # 'StreamConfig_STREAM_IP'
+		fieldvalue.append(gStreamConfig['STREAM_PORT']); # 'StreamConfig_STREAM_PORT'
+		fieldvalue.append(gStreamConfig['NOISE_TYPE']); # 'StreamConfig_NOISE_TYPE'
+		fieldvalue.append(gStreamConfig['NOISE_RATIO']); # 'StreamConfig_NOISE_RATIO'
+		fieldvalue.append(gStreamConfig['NOISE_PORT']); # 'StreamConfig_NOISE_PORT'
+		fieldvalue.append(gStreamConfig['NOISE_DATA_RATE']); # 'StreamConfig_NOISE_DATA_RATE'
+		fieldvalue.append(gStreamConfig['NOISE_PACKET_DELAY']); # 'StreamConfig_NOISE_PACKET_DELAY'
+		fieldvalue.append(gStreamConfig['SAP_PORT']); # 'StreamConfig_SAP_PORT'
 		fieldvalue.append(duration); # 'Duration'
+		fieldvalue.append(len(gMain['switch_list'])); # 'TotalSwitchCount'
+		fieldvalue.append(len(gMain['host_list'])); # 'TotalHostCount'
+		fieldvalue.append(len(noise_host_list)); # 'NoiseHosts'
+		fieldvalue.append(1); # 'SourceHosts'
+		fieldvalue.append(len(dest_host_list)); # 'DestinationHosts'
 		fieldvalue.append(frame_count_source); # 'FramesTx'
 		fieldvalue.append(get_mean(frame_count_dest)); # 'FramesRx'
 		fieldvalue.append(packets_sent); # 'PacketsTx'
@@ -388,20 +410,31 @@ def STREAM(	VIDEO,
 		
 		#Create Field Value List
 		fieldvalue_list = []
-		fieldvalue_list.append([V_NAME + '_v' + str(version)]);
-		fieldvalue_list.append([gConfig['TOPOLOGY_LIST'][gConfig['TOPOLOGY_TYPE'] - 1]]); # Vertical Format 'Topology'
-		fieldvalue_list.append([len(gMain['switch_list'])]); # Vertical Format 'Switches#'
-		fieldvalue_list.append([len(gMain['host_list'])]); # Vertical Format 'Hosts#'
-		fieldvalue_list.append([gConfig['SWITCH_LINK_SPEED']]); # Vertical Format 'Switch-Switch Link Speed'
-		fieldvalue_list.append([gConfig['HOST_LINK_SPEED']]); # Vertical Format 'Switch-Host Link Speed'
-		fieldvalue_list.append([DESTINATION_RATIO]); # Vertical Format 'DestinationRatio'
-		fieldvalue_list.append([NOISE_RATIO]); # Vertical Format 'NoiseRatio'
-		fieldvalue_list.append(noise_host_list); # Vertical Format 'NoiseSrc'
-		fieldvalue_list.append([source_host.name]); # Vertical Format 'Sources'
-		fieldvalue_list.append(dest_host_list); # Vertical Format 'Destinations'
-		fieldvalue_list.append([NOISE_TYPE]); # Vertical Format 'NoiseType'
-		fieldvalue_list.append([noise_rate]); # Vertical Format 'NoiseRate'
+		fieldvalue_list.append([V_NAME + '_v' + str(V_VERSION)]); # Vertical Format 'ID'
+		fieldvalue_list.append([gConfig['TOPOLOGY_TYPE']]); # Vertical Format 'Config_TOPOLOGY_TYPE'
+		fieldvalue_list.append([gConfig['SWITCH_COUNT']]); # Vertical Format 'Config_SWITCH_COUNT'
+		fieldvalue_list.append([gConfig['HOST_COUNT_PER_SWITCH']]); # Vertical Format 'Config_HOST_COUNT_PER_SWITCH'
+		fieldvalue_list.append([gConfig['USE_STP']]); # Vertical Format 'Config_USE_STP'
+		fieldvalue_list.append([gConfig['SWITCH_LINK_SPEED']]); # Vertical Format 'Config_SWITCH_LINK_SPEED'
+		fieldvalue_list.append([gConfig['HOST_LINK_SPEED']]); # Vertical Format 'Config_HOST_LINK_SPEED'
+		fieldvalue_list.append([gConfig['RANDOM_SWITCH_GLOBAL_MAX_LINKS'] if (gConfig['TOPOLOGY_TYPE'] == 5) else -1]); # Vertical Format 'Config_RANDOM_SWITCH_GLOBAL_MAX_LINKS'
+		fieldvalue_list.append([gConfig['RANDOM_TOTAL_HOST_COUNT'] if (gConfig['TOPOLOGY_TYPE'] == 5) else -1]); # Vertical Format 'Config_RANDOM_TOTAL_HOST_COUNT'
+		fieldvalue_list.append([gStreamConfig['VIDEO']]); # Vertical Format 'StreamConfig_VIDEO'
+		fieldvalue_list.append([gStreamConfig['DESTINATION_RATIO']]); # Vertical Format 'StreamConfig_DESTINATION_RATIO'
+		fieldvalue_list.append([INT2IP(gStreamConfig['STREAM_IP'])]); # Vertical Format 'StreamConfig_STREAM_IP'
+		fieldvalue_list.append([gStreamConfig['STREAM_PORT']]); # Vertical Format 'StreamConfig_STREAM_PORT'
+		fieldvalue_list.append([gStreamConfig['NOISE_TYPE']]); # Vertical Format 'StreamConfig_NOISE_TYPE'
+		fieldvalue_list.append([gStreamConfig['NOISE_RATIO']]); # Vertical Format 'StreamConfig_NOISE_RATIO'
+		fieldvalue_list.append([gStreamConfig['NOISE_PORT']]); # Vertical Format 'StreamConfig_NOISE_PORT'
+		fieldvalue_list.append([gStreamConfig['NOISE_DATA_RATE']]); # Vertical Format 'StreamConfig_NOISE_DATA_RATE'
+		fieldvalue_list.append([gStreamConfig['NOISE_PACKET_DELAY']]); # Vertical Format 'StreamConfig_NOISE_PACKET_DELAY'
+		fieldvalue_list.append([gStreamConfig['SAP_PORT']]); # Vertical Format 'StreamConfig_SAP_PORT'
 		fieldvalue_list.append([duration]); # Vertical Format 'Duration'
+		fieldvalue_list.append([len(gMain['switch_list'])]); # Vertical Format 'TotalSwitchCount'
+		fieldvalue_list.append([len(gMain['host_list'])]); # Vertical Format 'TotalHostCount'
+		fieldvalue_list.append(noise_host_list); # Vertical Format 'NoiseHosts'
+		fieldvalue_list.append([source_host.name]); # Vertical Format 'SourceHosts'
+		fieldvalue_list.append(dest_host_list); # Vertical Format 'DestinationHosts'
 		fieldvalue_list.append([frame_count_source]); # Vertical Format 'FramesTx'
 		fieldvalue_list.append(frame_count_dest); # Vertical Format 'FramesRx'
 		fieldvalue_list.append([packets_sent]); # Vertical Format 'PacketsTx'
