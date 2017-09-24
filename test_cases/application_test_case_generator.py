@@ -11,7 +11,7 @@ source = [	'videos/bus/bus000.avi',
 destination_ratio = [ 0.1, 0.2, 0.3 ]
 noise_ratio = dict(zip(destination_ratio, [ 0.2, 0.4, 0.6 ]))
 noise_type = [ 1, 2 ]
-noise_value = dict(zip(noise_type, [[ 64000, 128000, 256000 ], [ 1024000, 4096000, 8192000 ]]))
+noise_value = dict(zip(noise_type, [[ 64000, 128000, 256000 ], [ 1024000, 2048000, 4096000 ]]))
 
 file_object=open("application_test_cases.txt",'w')
 
