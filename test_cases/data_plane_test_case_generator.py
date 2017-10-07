@@ -1,11 +1,11 @@
 topology=[1, 2, 3, 4, 5]
 
-bus_switch_count=[8, 16, 24, 32, 40]
+bus_switch_count=[8, 16, 24, 32]
 bus_host_per_switch=[3]
 bus_switch_link_speed=[4,8,16,32]
 bus_hosst_link_speed=[10]
 
-ring_switch_count=[8, 16, 24, 32, 40]
+ring_switch_count=[8, 16, 24, 32]
 ring_host_per_switch=[3]
 ring_switch_link_speed=[4,8,16,32]
 ring_hosst_link_speed=[10]
@@ -18,10 +18,10 @@ mesh_hosst_link_speed=[10]
 star_host_count=[4,8,16,32]
 star_host_link_speed=[10]
 
-random_switch_count=[8, 16, 24, 32, 40]
+random_switch_count=[8, 16, 24, 32]
 random_host_per_switch=[3]
-random_total_count=dict(zip(random_switch_count, [12, 24, 36, 48, 60]))
-random_switch_max_links=dict(zip(random_switch_count, [16, 32, 48, 64, 80]))
+random_total_count=dict(zip(random_switch_count, [12, 24, 36, 48]))
+random_switch_max_links=dict(zip(random_switch_count, [16, 32, 48, 64]))
 random_switch_link_speed=[4,8,16,32]
 random_host_link_speed=[10]
 random_stp_option=['T','F']
