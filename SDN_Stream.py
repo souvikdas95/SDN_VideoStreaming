@@ -113,8 +113,8 @@ def STREAM(	VIDEO,
 	for i in range(destination_count):
 		sap_client_command_args_end = (	'\'' + source_host.IP(intf = source_host.defaultIntf()) + '\' '
 										'\'' + str(SAP_PORT) + '\' '
-										'\'' + SDP_DIR + os.path.sep + V_NAME + '_destination_' + str(i) + '.sdp\' '
-										'> \'' + LOGS_DIR + os.path.sep + 'SAP_client_' + str(i) + '.log\' 2>&1');
+										'\'' + SDP_DIR + os.path.sep + V_NAME + '_destination_' + dest_host_list[i].name + '.sdp\' '
+										'> \'' + LOGS_DIR + os.path.sep + 'SAP_client_' + dest_host_list[i].name + '.log\' 2>&1');
 		t = threading.Thread(target=_sap_client_command, args=(dest_host_list[i], sap_client_command_args_init + sap_client_command_args_end));
 		t.start();
 		thread_sap_client_list.append(t);
@@ -132,9 +132,9 @@ def STREAM(	VIDEO,
 	# Initialize Destination Packet Capture
 	info('\n*** Initializing Destination Packet Capture . . . ');
 	for i in range(destination_count):
-		dest_host_list[i].cmd(	'touch \'' + PCAP_DIR + os.path.sep + 'destination_host_' + str(i) + '.pcap\' && '
-								'tshark -i \'' + dest_host_list[i].defaultIntf().name + '\' -f \'host ' + INT2IP(STREAM_IP) + ' and port ' + str(STREAM_PORT) + '\' -w \'' + PCAP_DIR + os.path.sep + 'destination_host_' + str(i) + '.pcap\' '
-								'&> \'' + LOGS_DIR + os.path.sep + 'tshark_destination_' + str(i) + '.log\' 2>&1 &');
+		dest_host_list[i].cmd(	'touch \'' + PCAP_DIR + os.path.sep + 'destination_host_' + dest_host_list[i].name + '.pcap\' && '
+								'tshark -i \'' + dest_host_list[i].defaultIntf().name + '\' -f \'host ' + INT2IP(STREAM_IP) + ' and port ' + str(STREAM_PORT) + '\' -w \'' + PCAP_DIR + os.path.sep + 'destination_host_' + dest_host_list[i].name + '.pcap\' '
+								'&> \'' + LOGS_DIR + os.path.sep + 'tshark_destination_' + dest_host_list[i].name + '.log\' 2>&1 &');
 
 	# Start Noise
 	info('\n*** Starting Noise . . . ');
@@ -146,22 +146,22 @@ def STREAM(	VIDEO,
 		for i in range(0, noise_count):
 			noise_host_list[i].cmd(	'cd \'' + EXPORTS_DIR + '\' && '
 									'python \'Noise_UDP.py\' \'1\' \'' + str(NOISE_PORT) + '\' \'' + str(gPacketConfig['NOISE_PACKET_PAYLOAD_SIZE']) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
-									'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp' + '.log\' 2>&1 &');
+									'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp_' + noise_host_list[i].name + '.log\' 2>&1 &');
 	elif NOISE_TYPE == 2:
 		_noise_host_offset = noise_count / 2;
 		for i in range(0, _noise_host_offset):
 			j = _noise_host_offset + i;
 			noise_host_list[i].cmd(	'cd \'' + EXPORTS_DIR + '\' && '
 									'python \'Noise_UDP.py\' \'2\' \'' + noise_host_list[j].IP(intf = noise_host_list[j].defaultIntf()) + '\' \'' + str(NOISE_PORT) + '\' \'' + str(gPacketConfig['NOISE_PACKET_PAYLOAD_SIZE']) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
-									'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp' + '.log\' 2>&1 &');
+									'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp_' + noise_host_list[i].name + '.log\' 2>&1 &');
 			noise_host_list[j].cmd(	'cd \'' + EXPORTS_DIR + '\' && '
 									'python \'Noise_UDP.py\' \'2\' \'' + noise_host_list[i].IP(intf = noise_host_list[i].defaultIntf()) + '\' \'' + str(NOISE_PORT) + '\' \'' + str(gPacketConfig['NOISE_PACKET_PAYLOAD_SIZE']) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
-									'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp' + '.log\' 2>&1 &');
+									'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp_' + noise_host_list[j].name + '.log\' 2>&1 &');
 		# When Noise Count is Odd (1 Noise Host or Last Noise Host)
 		if (noise_count % 2):
 			noise_host_list[-1].cmd(	'cd \'' + EXPORTS_DIR + '\' && '
 										'python \'Noise_UDP.py\' \'2\' \'' + source_host.IP(intf = source_host.defaultIntf()) + '\' \'' + str(NOISE_PORT) + '\' \'' + str(gPacketConfig['NOISE_PACKET_PAYLOAD_SIZE']) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
-										'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp' + '.log\' 2>&1 &');
+										'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp_' + noise_host_list[-1].name + '.log\' 2>&1 &');
 
 
 	# Wait for 15 Seconds
@@ -183,9 +183,9 @@ def STREAM(	VIDEO,
 			_count += 1;
 	thread_record_list = [];
 	for i in range(destination_count):
-		record_args_end =(	'-i \'' + SDP_DIR + os.path.sep + V_NAME + '_destination_' + str(i) + '.sdp\' -c copy -y '
-							'\'' + REC_DIR + os.path.sep + 'recording_' + str(i) + '.ts\' '
-							'>> \'' + LOGS_DIR + os.path.sep + 'recorder_' + str(i) + '.log\' 2>&1');
+		record_args_end =(	'-i \'' + SDP_DIR + os.path.sep + V_NAME + '_destination_' + dest_host_list[i].name + '.sdp\' -c copy -y '
+							'\'' + REC_DIR + os.path.sep + 'recording_' + dest_host_list[i].name + '.ts\' '
+							'>> \'' + LOGS_DIR + os.path.sep + 'recorder_' + dest_host_list[i].name + '.log\' 2>&1');
 		t = threading.Thread(target=_record, args=(dest_host_list[i], record_args_init + record_args_end));
 		t.start();
 		thread_record_list.append(t);
@@ -219,6 +219,32 @@ def STREAM(	VIDEO,
 			except:
 				pass;
 
+	# Clear OVS Flows & Groups
+	info('\n*** Clearing all OVS Flows & Groups . . . ');
+	for x in gMain['switch_list']:
+		x.sendCmd('ovs-ofctl --protocols=OpenFlow13 replace-flows ' + x.name + ' \'' + BASE_DIR + os.path.sep + 'ovs_flows_default.txt\'');
+	for x in gMain['switch_list']:
+		x.waitOutput(verbose=True);
+	for x in gMain['switch_list']:
+		x.sendCmd('ovs-ofctl --protocols=OpenFlow13 del-groups ' + x.name);
+	for x in gMain['switch_list']:
+		x.waitOutput(verbose=True);
+
+	# Reset Session Manager (Only works for Multicast Session Manager)
+	info('\n*** Resetting Session Manager . . . ');
+	try:
+		_response = urllib2.urlopen("http://127.0.0.1:8080/wm/sessionmanager/reset/json").read();
+		_len = len(_response);
+		if _len < 4 or _response[:4] not in ("Fail", "Succ"):
+			raise Exception('Something went wrong!');
+	except urllib2.HTTPError as e:
+		if e.code == 404:
+			warn('\nWARNING: Session Manager not Found')
+		else:
+			warn('\nERROR: ' + str(e));
+	except Exception as e:
+		warn('\nERROR: ' + str(e));
+
 	# Process PSNR for each Recording
 	info('\n*** Processing PSNR Results . . . ');
 	rec_avg_mse_list = [];
@@ -227,17 +253,17 @@ def STREAM(	VIDEO,
 	rec_avg_psnr_mean = 0.0;
 	frame_count_dest = [];
 	for i in range(destination_count):
-		dest_host_list[i].cmd(	'ffmpeg -i \'' + REC_DIR + os.path.sep + 'recording_' + str(i) + '.ts\' '
-								'-vf \"movie=\'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\', psnr=stats_file=\'' + PSNR_DIR + os.path.sep + 'rec_' + str(i) + '_psnr.txt\'\" '
+		dest_host_list[i].cmd(	'ffmpeg -i \'' + REC_DIR + os.path.sep + 'recording_' + dest_host_list[i].name + '.ts\' '
+								'-vf \"movie=\'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\', psnr=stats_file=\'' + PSNR_DIR + os.path.sep + 'rec_' + dest_host_list[i].name + '_psnr.txt\'\" '
 								'-f rawvideo -y /dev/null '
-								'> \'' + LOGS_DIR + os.path.sep + 'rec_' + str(i) + '_psnr' + '.log\' 2>&1');
+								'> \'' + LOGS_DIR + os.path.sep + 'rec_' + dest_host_list[i].name + '_psnr' + '.log\' 2>&1');
 		try:
-			with open(PSNR_DIR + os.path.sep + 'rec_' + str(i) + '_psnr.txt', 'r') as f:
+			with open(PSNR_DIR + os.path.sep + 'rec_' + dest_host_list[i].name + '_psnr.txt', 'r') as f:
 				pass;
 		except IOError:
-			with open(PSNR_DIR + os.path.sep + 'rec_' + str(i) + '_psnr.txt', 'w') as f:
+			with open(PSNR_DIR + os.path.sep + 'rec_' + dest_host_list[i].name + '_psnr.txt', 'w') as f:
 				pass;
-		with open(PSNR_DIR + os.path.sep + 'rec_' + str(i) + '_psnr.txt', 'r+') as f:
+		with open(PSNR_DIR + os.path.sep + 'rec_' + dest_host_list[i].name + '_psnr.txt', 'r+') as f:
 			content = f.readlines();
 			avg_mseavg = 0;
 			frame_count = 0;
@@ -283,7 +309,7 @@ def STREAM(	VIDEO,
 	packets_recv_list = [];
 	for i in range(destination_count):
 		try:
-			packets_recv = dest_host_list[i].cmd(	'tshark -r \'' + PCAP_DIR + os.path.sep + 'destination_host_' + str(i) + '.pcap\' '
+			packets_recv = dest_host_list[i].cmd(	'tshark -r \'' + PCAP_DIR + os.path.sep + 'destination_host_' + dest_host_list[i].name + '.pcap\' '
 														'-q -z io,phs | sed -n \'7,7p\' | cut -d \" \" -f 40 | cut -d \":\" -f 2').split('\n');
 			if isinstance(packets_recv[-1], int):
 				packets_recv = int(packets_recv[-1]);

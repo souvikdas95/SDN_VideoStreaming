@@ -29,7 +29,8 @@ if noise_type == 2:
 	try:
 		destination_address = IP2INT(args[cur_arg]);
 	except:
-		print("\n*** Warning: Invalid Destination Address. Switching to Broadcast Noise.");
+		sys.stdout.write("\n*** Warning: Invalid Destination Address. Switching to Broadcast Noise.\n");
+		sys.stdout.flush();
 		noise_type = 1;
 	cur_arg += 1;
 

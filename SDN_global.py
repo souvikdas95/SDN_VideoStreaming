@@ -5,7 +5,7 @@
 """
 
 # System Imports
-import sys, os, threading, time, math, random, csv, signal, atexit;
+import sys, os, threading, time, math, random, csv, signal, atexit, urllib2;
 
 # Suppress .pyc generation
 sys.dont_write_bytecode = True;
@@ -111,7 +111,7 @@ gPacketConfig = {
 gStreamConfig = {
 	'VIDEO' : 'videos' + os.path.sep + 'bus' + os.path.sep + 'bus000.avi',
 	'DESTINATION_RATIO' : 0.25,
-	'STREAM_IP' : IP2INT('234.0.0.1'),
+	'STREAM_IP' : IP2INT('225.225.0.1'),
 	'STREAM_PORT' : 5555,
 	'NOISE_TYPE' : 1,
 	'NOISE_RATIO' : 0.5,
