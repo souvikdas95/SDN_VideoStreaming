@@ -233,7 +233,8 @@ def STREAM(	VIDEO,
 	# Reset Session Manager (Only works for Multicast Session Manager)
 	info('\n*** Resetting Session Manager . . . ');
 	try:
-		_response = urllib2.urlopen("http://127.0.0.1:8080/wm/sessionmanager/reset/json").read();
+		_request = urllib2.Request("http://127.0.0.1:8080/wm/sessionmanager/reset/json");
+		_response = urllib2.build_opener(urllib2.ProxyHandler({})).open(_request).read(); # Bypass Proxy
 		_len = len(_response);
 		if _len < 4 or _response[:4] not in ("Fail", "Succ"):
 			raise Exception('Something went wrong!');
