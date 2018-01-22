@@ -120,3 +120,9 @@ gStreamConfig = {
 	'NOISE_PACKET_DELAY' : 364.2578125,
 	'SAP_PORT' : 49160,
 };
+
+# Dictionary of Global Mutex
+gMutex = {
+	'STREAM_INIT' : threading.Lock(),
+	'STREAM_END' : threading.Lock(),
+}
