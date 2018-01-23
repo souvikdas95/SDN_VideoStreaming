@@ -7,9 +7,25 @@
 # Global Imports
 from SDN_global import *;
 
+def mnPopen(host, cmd, logfile, bash = True):
+	try:
+		with open(logfile, 'r') as f:
+			pass;
+	except IOError:
+		with open(logfile, 'w') as f:
+			pass;
+	f = open(logfile, 'r+');
+	if bash:
+		cmd = '/bin/bash -c \"' + cmd + '\"';
+	return host.popen(cmd, stdout = f, stderr = f, shell = True), f;
+
+def mnPexec(host, cmd, bash = True):
+	if bash:
+		cmd = '/bin/bash -c \"' + cmd + '\"';
+	return host.pexec(cmd, shell = True)[0];
+
 def STREAM(	CASE_ID,
 			CLUSTER_ID,
-			HOST_POOL,
 			VIDEO,
 			DESTINATION_RATIO,
 			STREAM_IP,
@@ -28,10 +44,22 @@ def STREAM(	CASE_ID,
 	# Print Required Source Destination Noise Hosts Information
 	try:
 		gMutex['STREAM_INIT'].acquire();
-		info('\n***** CLUSTER #' + str(CLUSTER_ID) + ' Host Configuration *****\n');
-		source_host = HOST_POOL.pop();
+		info('\n******************** \n');
+		info('*** CLUSTER #' + str(CLUSTER_ID) + ' Host Configuration: \n');
+		info('*** \n');
+
+		# Prepare Host Pool
+		HOST_POOL = set([x for x in gMain['host_list']]);
+		assert(len(HOST_POOL) >= 2);
+
+		# Select Source Host
+		source_host = random.choice(gMain['host_list']);
+		HOST_POOL.remove(source_host);
 		info('*** Source Host: ' + source_host.name + ' (' + source_host.IP(intf = source_host.defaultIntf()) + ')\n');
-		destination_count = int(DESTINATION_RATIO * len(HOST_POOL));
+		info('*** \n');
+		
+		# Select Destination Hosts
+		destination_count = int(DESTINATION_RATIO * len(gMain['host_list']));
 		if destination_count < 1:
 			destination_count = 1;
 		elif destination_count > len(HOST_POOL):
@@ -41,15 +69,23 @@ def STREAM(	CASE_ID,
 		info('*** Destination Hosts: \n');
 		for host in dest_host_list:
 			info('*** ' + host.name + ' (' + host.IP(intf = host.defaultIntf()) + ')\n');
-		if NOISE_RATIO > 0.0 and len(HOST_POOL) == 1:
-			noise_count = 1;
-		else:
-			noise_count = int(NOISE_RATIO * len(HOST_POOL));
-		noise_host_list = random.sample(HOST_POOL, noise_count);
-		HOST_POOL -= set(noise_host_list);
-		info('*** Noise Hosts: \n');
-		for host in noise_host_list:
-			info('*** ' + host.name + ' (' + host.IP(intf = host.defaultIntf()) + ')\n');
+		info('*** \n');
+
+		# Select Noise Hosts
+		noise_count = 0;
+		noise_host_list = [];
+		if NOISE_DATA_RATE > 0:
+			if len(HOST_POOL):
+				noise_count = int(NOISE_RATIO * len(gMain['host_list']));
+				if noise_count < 1:
+					noise_count = 1;
+				elif noise_count > len(HOST_POOL):
+					noise_count = len(HOST_POOL);
+				noise_host_list = random.sample(HOST_POOL, noise_count);
+				HOST_POOL -= set(noise_host_list);
+				info('*** Noise Hosts: \n');
+				for host in noise_host_list:
+					info('*** ' + host.name + ' (' + host.IP(intf = host.defaultIntf()) + ')\n');
 		info('********************\n');
 
 		# Prepare Stream Output Directory
@@ -88,65 +124,81 @@ def STREAM(	CASE_ID,
 
 	# Draw Frame# Source Video
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Drawing Frames . . . ');
-	source_host.cmd('ffmpeg -i \'' + VIDEO + '\' '
-					'-vf \'drawtext=fontfile=Arial.ttf: text=%{n}: x=0: y=0: fontcolor=white: box=1: boxcolor=0x00000099\' '
-					'-y \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\' '
-					'> \'' + LOGS_DIR + os.path.sep + 'ffmpeg_drawtext' +'.log\' 2>&1');
+	_proc, _f = mnPopen(source_host,
+						'ffmpeg -i \'' + VIDEO + '\' '
+						'-vf \'drawtext=fontfile=Arial.ttf: text=%{n}: x=0: y=0: fontcolor=white: box=1: boxcolor=0x00000099\' '
+						'-y \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\'',
+						LOGS_DIR + os.path.sep + 'ffmpeg_drawtext' + '.log');
+	_proc.wait();
+	_f.flush();
+	_f.close();
 
 	# Calculate Source Frame Count
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Calculating Source Frame Count . . . ');
 	try:
-		frame_count_source = long(source_host.cmd(	'ffprobe -v error -count_frames -select_streams v:0 -show_entries '
-													'stream=nb_read_frames -of default=nokey=1:noprint_wrappers=1 '
-													'-i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\''));
+		frame_count_source = long(mnPexec(	source_host,
+											'ffprobe -v error -count_frames -select_streams v:0 -show_entries '
+											'stream=nb_read_frames -of default=nokey=1:noprint_wrappers=1 '
+											'-i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\''));
 	except ValueError:
-		info('\n[Cluster #' + str(CLUSTER_ID) + '] Error: Reading Source Frames Failed!');
+		info('\n[Cluster #' + str(CLUSTER_ID) + '] Error: Reading Source Frames Failed! ');
 		return;
 
 	# Generate SDP
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Generating SDP . . . ');
-	source_host.cmd('ffmpeg -re -i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\' '
-					'-c copy -sdp_file \'' + SDP_DIR + os.path.sep + V_NAME + '_source.sdp\' -t 0 '
-					'-f rtp -y \'rtp://@' + INT2IP(STREAM_IP) + ':' + str(STREAM_PORT) + '\' '
-					'> \'' + LOGS_DIR + os.path.sep + 'sdp.log\' 2>&1');
-	
-	# Initiate SAP
-	info('\n[Cluster #' + str(CLUSTER_ID) + '] Initiating SAP . . . ');
-	source_host.cmd('cd \'' + EXPORTS_DIR + '\' && '
-					'python SAP_server.py '
-					'\'' + source_host.IP(intf = source_host.defaultIntf()) + '\' '
-					'\'' + str(SAP_PORT) + '\' '
-					'\'' + SDP_DIR + os.path.sep + V_NAME + '_source.sdp\' '
-					'&> \'' + LOGS_DIR + os.path.sep + 'SAP_server.log\' 2>&1 &');
+	_proc, _f = mnPopen(source_host,
+						'ffmpeg -re -i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\' '
+						'-c copy -sdp_file \'' + SDP_DIR + os.path.sep + V_NAME + '_source.sdp\' -t 0 '
+						'-f rtp -y \'rtp://@' + INT2IP(STREAM_IP) + ':' + str(STREAM_PORT) + '\'',
+						LOGS_DIR + os.path.sep + 'sdp.log');
+	_proc.wait();
+	_f.flush();
+	_f.close();
+
+	# SAP
+	info('\n[Cluster #' + str(CLUSTER_ID) + '] Starting SAP Process . . . ');
+	_proc, _f = mnPopen(source_host,
+						'cd \'' + EXPORTS_DIR + '\' && '
+						'python SAP_server.py '
+						'\'' + source_host.IP(intf = source_host.defaultIntf()) + '\' '
+						'\'' + str(SAP_PORT) + '\' '
+						'\'' + SDP_DIR + os.path.sep + V_NAME + '_source.sdp\'',
+						LOGS_DIR + os.path.sep + 'SAP_server.log');
 	sap_client_command_args_init = 	'cd \'' + EXPORTS_DIR + '\' && python SAP_client.py ';
-	def _sap_client_command(_dest_host, _sap_client_command_args):
-		_dest_host.cmd(_sap_client_command_args);
-	thread_sap_client_list = [];
+	sap_client_process_list = [];
 	for host in dest_host_list:
 		sap_client_command_args_end = (	'\'' + source_host.IP(intf = source_host.defaultIntf()) + '\' '
 										'\'' + str(SAP_PORT) + '\' '
-										'\'' + SDP_DIR + os.path.sep + V_NAME + '_destination_' + host.name + '.sdp\' '
-										'> \'' + LOGS_DIR + os.path.sep + 'SAP_client_' + host.name + '.log\' 2>&1');
-		t = threading.Thread(target=_sap_client_command, args=(host, sap_client_command_args_init + sap_client_command_args_end));
-		t.start();
-		thread_sap_client_list.append(t);
-	for thread_sap_client in thread_sap_client_list:
-		thread_sap_client.join();
-	info('\n[Cluster #' + str(CLUSTER_ID) + '] SAP Completed . . . ');
+										'\'' + SDP_DIR + os.path.sep + V_NAME + '_destination_' + host.name + '.sdp\'');
+		sap_client_process_list.append(mnPopen(	host,
+												sap_client_command_args_init + sap_client_command_args_end,
+												LOGS_DIR + os.path.sep + 'SAP_client_' + host.name + '.log'));
+	for sap_client_process in sap_client_process_list:
+		sap_client_process[0].wait();
+		sap_client_process[1].flush();
+		sap_client_process[1].close();
+	info('\n[Cluster #' + str(CLUSTER_ID) + '] SAP Completed! ');
 	duration = time.time() - start_time;
+	_proc.terminate();
+	_f.flush();
+	_f.close();
 
 	# Initialize Source Packet Capture
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Initializing Source Packet Capture . . . ');
-	source_host.cmd('touch \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\' && '
-					'tshark -i \'' + source_host.defaultIntf().name + '\' -f \'host ' + INT2IP(STREAM_IP) + ' and port ' + str(STREAM_PORT) + '\' -w \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\' '
-					'&> \'' + LOGS_DIR + os.path.sep + 'tshark_source' + '.log\' 2>&1 &');
+	srcPcapProcess = [None, None];
+	srcPcapProcess[0], srcPcapProcess[1] = mnPopen(	source_host,
+											'touch \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\' && '
+											'tshark -i \'' + source_host.defaultIntf().name + '\' -f \'host ' + INT2IP(STREAM_IP) + ' and port ' + str(STREAM_PORT) + '\' -w \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\'',
+											LOGS_DIR + os.path.sep + 'tshark_source' + '.log');
 
 	# Initialize Destination Packet Capture
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Initializing Destination Packet Capture . . . ');
+	dstPcapProcessList = [];
 	for host in dest_host_list:
-		host.cmd(	'touch \'' + PCAP_DIR + os.path.sep + 'destination_host_' + host.name + '.pcap\' && '
-					'tshark -i \'' + host.defaultIntf().name + '\' -f \'host ' + INT2IP(STREAM_IP) + ' and port ' + str(STREAM_PORT) + '\' -w \'' + PCAP_DIR + os.path.sep + 'destination_host_' + host.name + '.pcap\' '
-					'&> \'' + LOGS_DIR + os.path.sep + 'tshark_destination_' + host.name + '.log\' 2>&1 &');
+		dstPcapProcessList.append(mnPopen(	host,
+											'touch \'' + PCAP_DIR + os.path.sep + 'destination_host_' + host.name + '.pcap\' && '
+											'tshark -i \'' + host.defaultIntf().name + '\' -f \'host ' + INT2IP(STREAM_IP) + ' and port ' + str(STREAM_PORT) + '\' -w \'' + PCAP_DIR + os.path.sep + 'destination_host_' + host.name + '.pcap\'',
+											LOGS_DIR + os.path.sep + 'tshark_destination_' + host.name + '.log'));
 
 	# Start Noise
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Starting Noise . . . ');
@@ -154,34 +206,39 @@ def STREAM(	CASE_ID,
 	# for i in range(1, gMain['host_count']):
 	# 	if gMain['host_list'][i] not in dest_host_list:
 	# 		noise_host_list.append(gMain['host_list'][i]);
+	noiseProcessList = [];
 	if NOISE_TYPE == 1:
 		for host in noise_host_list:
-			host.cmd(	'cd \'' + EXPORTS_DIR + '\' && '
-						'python \'Noise_UDP.py\' \'1\' \'' + str(NOISE_PORT) + '\' \'' + str(gPacketConfig['NOISE_PACKET_PAYLOAD_SIZE']) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
-						'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp_' + host.name + '.log\' 2>&1 &');
+			noiseProcessList.append(mnPopen(	host,
+											'cd \'' + EXPORTS_DIR + '\' && '
+											'python \'Noise_UDP.py\' \'1\' \'' + str(NOISE_PORT) + '\' \'' + str(gPacketConfig['NOISE_PACKET_PAYLOAD_SIZE']) + '\' \'' + str(NOISE_PACKET_DELAY) + '\'',
+											LOGS_DIR + os.path.sep + 'noise_udp_' + host.name + '.log'));
 	elif NOISE_TYPE == 2:
 		_noise_host_offset = noise_count / 2;
 		for i in range(0, _noise_host_offset):
 			j = _noise_host_offset + i;
-			noise_host_list[i].cmd(	'cd \'' + EXPORTS_DIR + '\' && '
-									'python \'Noise_UDP.py\' \'2\' \'' + noise_host_list[j].IP(intf = noise_host_list[j].defaultIntf()) + '\' \'' + str(NOISE_PORT) + '\' \'' + str(gPacketConfig['NOISE_PACKET_PAYLOAD_SIZE']) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
-									'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp_' + noise_host_list[i].name + '.log\' 2>&1 &');
-			noise_host_list[j].cmd(	'cd \'' + EXPORTS_DIR + '\' && '
-									'python \'Noise_UDP.py\' \'2\' \'' + noise_host_list[i].IP(intf = noise_host_list[i].defaultIntf()) + '\' \'' + str(NOISE_PORT) + '\' \'' + str(gPacketConfig['NOISE_PACKET_PAYLOAD_SIZE']) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
-									'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp_' + noise_host_list[j].name + '.log\' 2>&1 &');
+			noiseProcessList.append(mnPopen(	noise_host_list[i],
+											'cd \'' + EXPORTS_DIR + '\' && '
+											'python \'Noise_UDP.py\' \'2\' \'' + noise_host_list[j].IP(intf = noise_host_list[j].defaultIntf()) + '\' \'' + str(NOISE_PORT) + '\' \'' + str(gPacketConfig['NOISE_PACKET_PAYLOAD_SIZE']) + '\' \'' + str(NOISE_PACKET_DELAY) + '\'',
+											LOGS_DIR + os.path.sep + 'noise_udp_' + noise_host_list[i].name + '.log'));
+			noiseProcessList.append(mnPopen(	noise_host_list[j],
+											'cd \'' + EXPORTS_DIR + '\' && '
+											'python \'Noise_UDP.py\' \'2\' \'' + noise_host_list[i].IP(intf = noise_host_list[i].defaultIntf()) + '\' \'' + str(NOISE_PORT) + '\' \'' + str(gPacketConfig['NOISE_PACKET_PAYLOAD_SIZE']) + '\' \'' + str(NOISE_PACKET_DELAY) + '\'',
+											LOGS_DIR + os.path.sep + 'noise_udp_' + noise_host_list[j].name + '.log'));
 		# When Noise Count is Odd (1 Noise Host or Last Noise Host)
 		if (noise_count % 2):
-			noise_host_list[-1].cmd(	'cd \'' + EXPORTS_DIR + '\' && '
-										'python \'Noise_UDP.py\' \'2\' \'' + source_host.IP(intf = source_host.defaultIntf()) + '\' \'' + str(NOISE_PORT) + '\' \'' + str(gPacketConfig['NOISE_PACKET_PAYLOAD_SIZE']) + '\' \'' + str(NOISE_PACKET_DELAY) + '\' '
-										'&> \'' + LOGS_DIR + os.path.sep + 'noise_udp_' + noise_host_list[-1].name + '.log\' 2>&1 &');
+			noiseProcessList.append(mnPopen(	noise_host_list[-1],
+											'cd \'' + EXPORTS_DIR + '\' && '
+											'python \'Noise_UDP.py\' \'2\' \'' + source_host.IP(intf = source_host.defaultIntf()) + '\' \'' + str(NOISE_PORT) + '\' \'' + str(gPacketConfig['NOISE_PACKET_PAYLOAD_SIZE']) + '\' \'' + str(NOISE_PACKET_DELAY) + '\'',
+											LOGS_DIR + os.path.sep + 'noise_udp_' + noise_host_list[-1].name + '.log'));
 
 
 	# Wait for 15 Seconds
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Wait 15 Seconds for Network to Settle . . . ');
 	time.sleep(15);
 
-	# Prepare Stream Recorders
-	info('\n[Cluster #' + str(CLUSTER_ID) + '] Preparing Stream Recorders . . . ');
+	# Start Recording
+	info('\n[Cluster #' + str(CLUSTER_ID) + '] Preparing Recorders . . . ');
 	record_args_init = 'ffmpeg -protocol_whitelist file,udp,rtcp,rtp ';
 	_STREAM_COMPLETED = False;
 	def _record(_dest_host, _record_args):
@@ -191,50 +248,68 @@ def STREAM(	CASE_ID,
 			if _count > 0:
 				warn('\n*** WARNING: Recording Failed to Start for \'' + _dest_host.name + '\'. Retry #' + str(_count) + ' . . .');
 			_last = time.time();
-			_dest_host.cmd(_record_args);
+			_proc, _f = mnPopen(_dest_host,
+								_record_args,
+								LOGS_DIR + os.path.sep + 'recorder_' + host.name + '.log');
+			_proc.wait();
+			_f.flush();
+			_f.close();
 			_count += 1;
 	thread_record_list = [];
 	for host in dest_host_list:
 		record_args_end =(	'-i \'' + SDP_DIR + os.path.sep + V_NAME + '_destination_' + host.name + '.sdp\' -c copy -y '
-							'\'' + REC_DIR + os.path.sep + 'recording_' + host.name + '.ts\' '
-							'>> \'' + LOGS_DIR + os.path.sep + 'recorder_' + host.name + '.log\' 2>&1');
+							'\'' + REC_DIR + os.path.sep + 'recording_' + host.name + '.ts\'');
 		t = threading.Thread(target=_record, args=(host, record_args_init + record_args_end));
 		t.start();
 		thread_record_list.append(t);
 	time.sleep(1);
 
-	# Start Streamer
+	# Start Streaming
+	info('\n[Cluster #' + str(CLUSTER_ID) + '] Preparing Streamers . . . ');
 	stream_args =(	'ffmpeg -re -i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\' '
-					'-c copy -f rtp -y \'rtp://@' + INT2IP(STREAM_IP) + ':' + str(STREAM_PORT) + '\' '
-					'> \'' + LOGS_DIR + os.path.sep + 'streamer.log\' 2>&1');
-	source_host.sendCmd(stream_args);
-	info('\n[Cluster #' + str(CLUSTER_ID) + '] Streaming Started . . . ');
-
-	# Wait for Stream Completion
-	source_host.waitOutput(verbose = False, findPid = False);
-	info('\n[Cluster #' + str(CLUSTER_ID) + '] Streaming Completed . . . ');
+					'-c copy -f rtp -y \'rtp://@' + INT2IP(STREAM_IP) + ':' + str(STREAM_PORT) + '\'');
+	_proc, _f = mnPopen(source_host,
+						stream_args,
+						LOGS_DIR + os.path.sep + 'streamer.log');
+	info('\n[Cluster #' + str(CLUSTER_ID) + '] Streaming Started!');
+	info('\n[Cluster #' + str(CLUSTER_ID) + '] Waiting for Stream Completion . . . ');
+	_proc.wait();
+	_f.flush();
+	_f.close();
 	_STREAM_COMPLETED = True;
+	info('\n[Cluster #' + str(CLUSTER_ID) + '] Streaming Completed!');
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Waiting for Record Completion . . . ');
 	for thread_record in thread_record_list:
 		thread_record.join();
-	info('\n[Cluster #' + str(CLUSTER_ID) + '] Recording Completed . . . ');
+	info('\n[Cluster #' + str(CLUSTER_ID) + '] Recording Completed!');
 
 	# Clean Residue Processes
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Cleaning Residual Processes . . . ');
-	def _clean_residual_processes(_host):
-		ps = _host.cmd('ps | grep -v \"bash\"').split('\n');
-		del ps[0];
-		for line in ps:
-			try:
-				pid = int(line.strip().split(' ')[0]);
-				_host.cmd('kill -9 ' + str(pid));
-			except:
-				pass;
-	for host in noise_host_list:
-		_clean_residual_processes(host);
-	for host in dest_host_list:
-		_clean_residual_processes(host);
-	_clean_residual_processes(source_host);
+	# def _clean_residual_processes(_host):
+	# 	ps = _host.cmd('ps | grep -v \"bash\"').split('\n');
+	# 	del ps[0];
+	# 	for line in ps:
+	# 		try:
+	# 			pid = int(line.strip().split(' ')[0]);
+	# 			_host.cmd('kill -9 ' + str(pid));
+	# 		except:
+	# 			pass;
+	# for host in noise_host_list:
+	# 	_clean_residual_processes(host);
+	# for host in dest_host_list:
+	# 	_clean_residual_processes(host);
+	# _clean_residual_processes(source_host);
+	srcPcapProcess[0].terminate();
+	srcPcapProcess[1].flush();
+	srcPcapProcess[1].flush();
+	for dstPcapProcess in dstPcapProcessList:
+		dstPcapProcess[0].terminate();
+		dstPcapProcess[1].flush();
+		dstPcapProcess[1].flush();
+	for noiseProcess in noiseProcessList:
+		noiseProcess[0].terminate();
+		noiseProcess[1].flush();
+		noiseProcess[1].flush();
 
 	# Process PSNR for each Recording
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Processing PSNR Results . . . ');
@@ -244,10 +319,15 @@ def STREAM(	CASE_ID,
 	rec_avg_psnr_mean = 0.0;
 	frame_count_dest = [];
 	for host in dest_host_list:
-		host.cmd(	'ffmpeg -i \'' + REC_DIR + os.path.sep + 'recording_' + host.name + '.ts\' '
-								'-vf \"movie=\'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\', psnr=stats_file=\'' + PSNR_DIR + os.path.sep + 'rec_' + host.name + '_psnr.txt\'\" '
-								'-f rawvideo -y /dev/null '
-								'> \'' + LOGS_DIR + os.path.sep + 'rec_' + host.name + '_psnr' + '.log\' 2>&1');
+		_proc, _f = mnPopen(host,
+							'ffmpeg -i \'' + REC_DIR + os.path.sep + 'recording_' + host.name + '.ts\' '
+							'-vf \"movie=\'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\', psnr=stats_file=\'' + PSNR_DIR + os.path.sep + 'rec_' + host.name + '_psnr.txt\'\" '
+							'-f rawvideo -y /dev/null',
+							LOGS_DIR + os.path.sep + 'rec_' + host.name + '_psnr' + '.log',
+							bash = False);
+		_proc.wait();
+		_f.flush();
+		_f.close();
 		try:
 			with open(PSNR_DIR + os.path.sep + 'rec_' + host.name + '_psnr.txt', 'r') as f:
 				pass;
@@ -289,8 +369,10 @@ def STREAM(	CASE_ID,
 	# Process Packets Sent/Received
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Processing PCAP Results . . . ');
 	try:
-		packets_sent = source_host.cmd(	'tshark -r \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\' '
-											'-q -z io,phs | sed -n \'7,7p\' | cut -d \" \" -f 40 | cut -d \":\" -f 2').split('\n');
+		packets_sent = mnPexec(	source_host,
+								'tshark -r \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\' '
+								'-q -z io,phs | sed -n \'7,7p\' | cut -d \" \" -f 40 | cut -d \":\" -f 2',
+								bash = False).split('\n');
 		if isinstance(packets_sent[-1], int):
 			packets_sent = int(packets_sent[-1]);
 		else:
@@ -300,8 +382,10 @@ def STREAM(	CASE_ID,
 	packets_recv_list = [];
 	for host in dest_host_list:
 		try:
-			packets_recv = host.cmd(	'tshark -r \'' + PCAP_DIR + os.path.sep + 'destination_host_' + host.name + '.pcap\' '
-														'-q -z io,phs | sed -n \'7,7p\' | cut -d \" \" -f 40 | cut -d \":\" -f 2').split('\n');
+			packets_recv = mnPexec(	host,
+									'tshark -r \'' + PCAP_DIR + os.path.sep + 'destination_host_' + host.name + '.pcap\' '
+									'-q -z io,phs | sed -n \'7,7p\' | cut -d \" \" -f 40 | cut -d \":\" -f 2',
+									bash = False).split('\n');
 			if isinstance(packets_recv[-1], int):
 				packets_recv = int(packets_recv[-1]);
 			else:

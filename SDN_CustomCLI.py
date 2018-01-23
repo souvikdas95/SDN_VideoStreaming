@@ -54,20 +54,23 @@ class CustomCLI(CLI):
 			info('\n\n****** STREAMING TEST #' + str(self.cliArg['test']) + '\n');
 
 		# Initialize Host Pool
-		HOST_POOL = set([x for x in gMain['host_list']]);
+		# HOST_POOL = {}
+		# HOST_POOL['SOURCE'] = set([x for x in gMain['host_list']]);
+		# HOST_POOL['DESTINATION'] = set([x for x in gMain['host_list']]);
+		# HOST_POOL['NOISE'] = set([x for x in gMain['host_list']]);
 
 		# Get Streaming Cluster Count
 		CLUSTER_COUNT = 1;	# Default
 		while True:
 			try:
-				CLUSTER_COUNT = int(self._get_input('Enter No. of Streaming Clusters (>= 1 & <= ' + str(len(HOST_POOL) / 2) + '): ') or str(CLUSTER_COUNT));
+				CLUSTER_COUNT = int(self._get_input('Enter No. of Streaming Clusters (>= 1): ') or str(CLUSTER_COUNT));
 			except ValueError:
 				info ('*** Error: Invalid Input\n');
 				if self.cliArg['argv']:
 					info ('*** Check arg #' + str(self.cliArg['cur']) + ' at Test #' + str(self.cliArg['test']) + ' in \'' + self.cliArg['test_file'] + '\'\n');
 					return;
 				continue;
-			if CLUSTER_COUNT < 1 or CLUSTER_COUNT > (len(HOST_POOL) / 2):
+			if CLUSTER_COUNT < 1:
 				info ('*** Error: Input out of range\n');
 				if self.cliArg['argv']:
 					info ('*** Check arg #' + str(self.cliArg['cur']) + ' at Test #' + str(self.cliArg['test']) + ' in \'' + self.cliArg['test_file'] + '\'\n');
@@ -218,14 +221,14 @@ class CustomCLI(CLI):
 				break;
 			while True:
 				try:
-					NOISE_DATA_RATE = int(self._get_input('Enter Noise Data Rate per Host (>= 1) (in bps): ') or str(NOISE_DATA_RATE));
+					NOISE_DATA_RATE = int(self._get_input('Enter Noise Data Rate per Host (>= 0) (in bps): ') or str(NOISE_DATA_RATE));
 				except ValueError:
 					info ('*** Error: Invalid Input\n');
 					if self.cliArg['argv']:
 						info ('*** Check arg #' + str(self.cliArg['cur']) + ' at Test #' + str(self.cliArg['test']) + ' in \'' + self.cliArg['test_file'] + '\'\n');
 						return;
 					continue;
-				if NOISE_DATA_RATE < 1:
+				if NOISE_DATA_RATE < 0:
 					info ('*** Error: Input out of range\n');
 					if self.cliArg['argv']:
 						info ('*** Check arg #' + str(self.cliArg['cur']) + ' at Test #' + str(self.cliArg['test']) + ' in \'' + self.cliArg['test_file'] + '\'\n');
@@ -254,7 +257,6 @@ class CustomCLI(CLI):
 			thread_cluster = threading.Thread(target = STREAM, args = (
 				CASE_ID,
 				CLUSTER_ID,
-				HOST_POOL,
 				VIDEO,
 				DESTINATION_RATIO,
 				STREAM_IP,
