@@ -76,6 +76,15 @@ class CustomCLI(CLI):
 			break;
 		thread_cluster_list = [];
 
+		# Determine CASE_ID
+		global BASE_DIR;
+		OUTPUT_DIR = BASE_DIR + os.path.sep + 'output';
+		makedirs_s(OUTPUT_DIR);
+		CASE_ID = 1;	# Default
+		CASE_DIR = OUTPUT_DIR + os.path.sep + 'CASE_';
+		while os.path.exists(CASE_DIR + str(CASE_ID)) is True:
+			CASE_ID = CASE_ID + 1;
+
 		# Configure Streaming Clusters
 		for CLUSTER_ID in range(1, CLUSTER_COUNT + 1):
 			# Default Configuration for STREAM
@@ -243,6 +252,7 @@ class CustomCLI(CLI):
 
 			# Call STREAM method on Separate Thread
 			thread_cluster = threading.Thread(target = STREAM, args = (
+				CASE_ID,
 				CLUSTER_ID,
 				HOST_POOL,
 				VIDEO,
@@ -255,9 +265,12 @@ class CustomCLI(CLI):
 				NOISE_DATA_RATE,
 				NOISE_PACKET_DELAY,
 				SAP_PORT));
-			thread_cluster.start();
 			thread_cluster_list.append(thread_cluster);
-		
+
+		# Start all Clusters
+		for thread_cluster in thread_cluster_list:
+			thread_cluster.start();
+
 		# Wait for Clusters
 		def _wait_for_clusters(*args, **kwargs):
 			for thread_cluster in thread_cluster_list:

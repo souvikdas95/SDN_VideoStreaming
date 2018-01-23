@@ -7,7 +7,8 @@
 # Global Imports
 from SDN_global import *;
 
-def STREAM(	CLUSTER_ID,
+def STREAM(	CASE_ID,
+			CLUSTER_ID,
 			HOST_POOL,
 			VIDEO,
 			DESTINATION_RATIO,
@@ -55,19 +56,23 @@ def STREAM(	CLUSTER_ID,
 		info('\n[Cluster #' + str(CLUSTER_ID) + '] Preparing Stream Output Directories . . . ');
 		start_time = time.time();
 		global BASE_DIR;
+		EXPORTS_DIR = BASE_DIR + os.path.sep + 'exports';
+		assert(os.path.exists(EXPORTS_DIR));
 		OUTPUT_DIR = BASE_DIR + os.path.sep + 'output';
 		makedirs_s(OUTPUT_DIR);
-		EXPORTS_DIR = BASE_DIR + os.path.sep + 'exports';
+		CASE_DIR = OUTPUT_DIR + os.path.sep + 'CASE_' + str(CASE_ID);
+		makedirs_s(CASE_DIR);
 		SOURCE_FILENAME = os.path.split(VIDEO)[1];
 		_SOURCE_SPLIT = os.path.splitext(SOURCE_FILENAME);
 		V_NAME = _SOURCE_SPLIT[0];
 		V_EXT = _SOURCE_SPLIT[1];
 		V_VERSION = 1;
-		STREAM_DESTDIR = OUTPUT_DIR + os.path.sep + V_NAME;
+		STREAM_DESTDIR = CASE_DIR + os.path.sep + V_NAME;
 		while os.path.exists(STREAM_DESTDIR + '_v' + str(V_VERSION)) is True:
 			V_VERSION = V_VERSION + 1;
 		STREAM_DESTDIR = STREAM_DESTDIR + '_v' + str(V_VERSION);
 		makedirs_s(STREAM_DESTDIR);
+		STREAM_ID = V_NAME + '_v' + str(V_VERSION)
 		LOGS_DIR = STREAM_DESTDIR + os.path.sep + 'logs';
 		makedirs_s(LOGS_DIR);
 		PCAP_DIR = STREAM_DESTDIR + os.path.sep + 'pcap';
@@ -329,7 +334,9 @@ def STREAM(	CLUSTER_ID,
 	try:
 		gMutex['STREAM_END'].acquire();
 		info('\n[Cluster #' + str(CLUSTER_ID) + '] Generating Report . . . ');
-		fieldnames = [	'ID',
+		fieldnames = [	'CASE_ID',
+						'CLUSTER_ID',
+						'STREAM_ID',
 						'Config_TOPOLOGY_TYPE',
 						'Config_SWITCH_COUNT',
 						'Config_HOST_COUNT_PER_SWITCH',
@@ -338,7 +345,6 @@ def STREAM(	CLUSTER_ID,
 						'Config_HOST_LINK_SPEED',
 						'Config_RANDOM_SWITCH_GLOBAL_MAX_LINKS',
 						'Config_RANDOM_TOTAL_HOST_COUNT',
-						'CLUSTER_ID',
 						'StreamConfig_VIDEO',
 						'StreamConfig_DESTINATION_RATIO',
 						'StreamConfig_STREAM_IP',
@@ -375,7 +381,9 @@ def STREAM(	CLUSTER_ID,
 			
 			#Create Field Value List
 			fieldvalue = []
-			fieldvalue.append(V_NAME + '_v' + str(V_VERSION)); # 'ID'
+			fieldvalue.append(CASE_ID); # 'CASE_ID'
+			fieldvalue.append(CLUSTER_ID); # 'CLUSTER_ID'
+			fieldvalue.append(STREAM_ID); # 'STREAM_ID'
 			fieldvalue.append(gConfig['TOPOLOGY_TYPE']); # 'Config_TOPOLOGY_TYPE'
 			fieldvalue.append(gConfig['SWITCH_COUNT']); # 'Config_SWITCH_COUNT'
 			fieldvalue.append(gConfig['HOST_COUNT_PER_SWITCH']); # 'Config_HOST_COUNT_PER_SWITCH'
@@ -384,7 +392,6 @@ def STREAM(	CLUSTER_ID,
 			fieldvalue.append(gConfig['HOST_LINK_SPEED']); # 'Config_HOST_LINK_SPEED'
 			fieldvalue.append(gConfig['RANDOM_SWITCH_GLOBAL_MAX_LINKS'] if (gConfig['TOPOLOGY_TYPE'] == 5) else -1); # 'Config_RANDOM_SWITCH_GLOBAL_MAX_LINKS'
 			fieldvalue.append(gConfig['RANDOM_TOTAL_HOST_COUNT'] if (gConfig['TOPOLOGY_TYPE'] == 5) else -1); # 'Config_RANDOM_TOTAL_HOST_COUNT'
-			fieldvalue.append(CLUSTER_ID); # 'CLUSTER_ID'
 			fieldvalue.append(VIDEO); # 'StreamConfig_VIDEO'
 			fieldvalue.append(DESTINATION_RATIO); # 'StreamConfig_DESTINATION_RATIO'
 			fieldvalue.append(INT2IP(STREAM_IP)); # 'StreamConfig_STREAM_IP'
@@ -426,7 +433,9 @@ def STREAM(	CLUSTER_ID,
 			
 			#Create Field Value List
 			fieldvalue_list = []
-			fieldvalue_list.append([V_NAME + '_v' + str(V_VERSION)]); # Vertical Format 'ID'
+			fieldvalue_list.append([CASE_ID]); # Vertical Format 'CASE_ID'
+			fieldvalue_list.append([CLUSTER_ID]); # Vertical Format 'CLUSTER_ID'
+			fieldvalue_list.append([STREAM_ID]); # Vertical Format 'STREAM_ID'
 			fieldvalue_list.append([gConfig['TOPOLOGY_TYPE']]); # Vertical Format 'Config_TOPOLOGY_TYPE'
 			fieldvalue_list.append([gConfig['SWITCH_COUNT']]); # Vertical Format 'Config_SWITCH_COUNT'
 			fieldvalue_list.append([gConfig['HOST_COUNT_PER_SWITCH']]); # Vertical Format 'Config_HOST_COUNT_PER_SWITCH'
@@ -435,7 +444,6 @@ def STREAM(	CLUSTER_ID,
 			fieldvalue_list.append([gConfig['HOST_LINK_SPEED']]); # Vertical Format 'Config_HOST_LINK_SPEED'
 			fieldvalue_list.append([gConfig['RANDOM_SWITCH_GLOBAL_MAX_LINKS'] if (gConfig['TOPOLOGY_TYPE'] == 5) else -1]); # Vertical Format 'Config_RANDOM_SWITCH_GLOBAL_MAX_LINKS'
 			fieldvalue_list.append([gConfig['RANDOM_TOTAL_HOST_COUNT'] if (gConfig['TOPOLOGY_TYPE'] == 5) else -1]); # Vertical Format 'Config_RANDOM_TOTAL_HOST_COUNT'
-			fieldvalue_list.append([CLUSTER_ID]); # Vertical Format 'CLUSTER_ID'
 			fieldvalue_list.append([VIDEO]); # Vertical Format 'StreamConfig_VIDEO'
 			fieldvalue_list.append([DESTINATION_RATIO]); # Vertical Format 'StreamConfig_DESTINATION_RATIO'
 			fieldvalue_list.append([INT2IP(STREAM_IP)]); # Vertical Format 'StreamConfig_STREAM_IP'
@@ -462,11 +470,15 @@ def STREAM(	CLUSTER_ID,
 			row_count = 0;
 			while True:
 				row = {};
+				is_valid = False;
 				for i in range(len(fieldnames)):
 					key = fieldnames[i];
 					if row_count < len(fieldvalue_list[i]):
 						row[key] = fieldvalue_list[i][row_count];
-				if not row:
+						is_valid = True;
+					else:
+						row[key] = fieldvalue_list[i][-1] or '-';
+				if not row or not is_valid:
 					break;
 				# Write to file
 				writer.writerow(row);
