@@ -19,7 +19,8 @@ for i in source:
 	for j in destination_ratio:
 		for k in noise_type:
 			for l in noise_value[k]:
-				line=(	"'"+str(i)+"' "+
+				line=(	"'1' "+
+						"'"+str(i)+"' "+
 						"'"+str(j)+"' "+
 						"'' "+
 						"'' "+
