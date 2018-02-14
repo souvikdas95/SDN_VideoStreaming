@@ -368,34 +368,38 @@ def STREAM(	CASE_ID,
 		
 	# Process Packets Sent/Received
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Processing PCAP Results . . . ');
+	packets_sent = -1;
 	try:
-		packets_sent = mnPexec(	source_host,
-								'tshark -r \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\' '
-								'-q -z io,phs | sed -n \'7,7p\' | cut -d \" \" -f 40 | cut -d \":\" -f 2',
-								bash = False).split('\n');
-		if isinstance(packets_sent[-1], int):
-			packets_sent = int(packets_sent[-1]);
-		elif isinstance(packets_sent[-2], int):
-			packets_sent = int(packets_sent[-2]);
-		else:
-			packets_sent = -1; # parsing error
+		packets_sent_response = mnPexec(	source_host,
+											'tshark -r \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\' '
+											'-q -z io,phs | sed -n \'7,7p\' | cut -d \' \' -f 40 | cut -d \':\' -f 2',
+											bash = True).split('\n');
+		for x in packets_sent_response:
+			try:
+				packets_sent = int(x);
+			except ValueError:
+				pass;
+			else:
+				break;
 	except:
-		packets_sent = -1; # unknown error
+		pass;
 	packets_recv_list = [];
 	for host in dest_host_list:
+		packets_recv = -1;
 		try:
-			packets_recv = mnPexec(	host,
-									'tshark -r \'' + PCAP_DIR + os.path.sep + 'destination_host_' + host.name + '.pcap\' '
-									'-q -z io,phs | sed -n \'7,7p\' | cut -d \" \" -f 40 | cut -d \":\" -f 2',
-									bash = False).split('\n');
-			if isinstance(packets_recv[-1], int):
-				packets_recv = int(packets_recv[-1]);
-			elif isinstance(packets_recv[-2], int):
-				packets_recv = int(packets_recv[-2]);
-			else:
-				packets_recv = -1; # parsing error
+			packets_recv_response = mnPexec(	host,
+												'tshark -r \'' + PCAP_DIR + os.path.sep + 'destination_host_' + host.name + '.pcap\' '
+												'-q -z io,phs | sed -n \'7,7p\' | cut -d \' \' -f 40 | cut -d \':\' -f 2',
+												bash = True).split('\n');
+			for x in packets_recv_response:
+				try:
+					packets_recv = int(x);
+				except ValueError:
+					pass;
+				else:
+					break;
 		except:
-			packets_recv = -1; # unknown error
+			pass;
 		packets_recv_list.append(packets_recv);
 
 	# Retrieve Noise Rate (Not Required - Only for Testing)
