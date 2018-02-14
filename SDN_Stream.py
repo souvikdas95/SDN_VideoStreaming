@@ -559,9 +559,11 @@ def STREAM(	CASE_ID,
 					key = fieldnames[i];
 					if row_count < len(fieldvalue_list[i]):
 						row[key] = fieldvalue_list[i][row_count];
-						is_valid = True;
+						is_valid = True;	# row is valid only if at least 1 column is different from previous row.
+					elif len(fieldvalue_list[i]):
+						row[key] = fieldvalue_list[i][-1];	# print last element if the list corresponding to the given column is exhausted.
 					else:
-						row[key] = fieldvalue_list[i][-1] or '-';
+						row[key] = '-';	# list corresponding to the given column is empty.
 				if not row or not is_valid:
 					break;
 				# Write to file
