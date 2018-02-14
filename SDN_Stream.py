@@ -375,10 +375,12 @@ def STREAM(	CASE_ID,
 								bash = False).split('\n');
 		if isinstance(packets_sent[-1], int):
 			packets_sent = int(packets_sent[-1]);
-		else:
+		elif isinstance(packets_sent[-2], int):
 			packets_sent = int(packets_sent[-2]);
-	except ValueError:
-		packets_sent = -1; # error
+		else:
+			packets_sent = -1; # parsing error
+	except:
+		packets_sent = -1; # unknown error
 	packets_recv_list = [];
 	for host in dest_host_list:
 		try:
@@ -388,10 +390,12 @@ def STREAM(	CASE_ID,
 									bash = False).split('\n');
 			if isinstance(packets_recv[-1], int):
 				packets_recv = int(packets_recv[-1]);
-			else:
+			elif isinstance(packets_recv[-2], int):
 				packets_recv = int(packets_recv[-2]);
-		except ValueError:
-			packets_recv = -1; # error
+			else:
+				packets_recv = -1; # parsing error
+		except:
+			packets_recv = -1; # unknown error
 		packets_recv_list.append(packets_recv);
 
 	# Retrieve Noise Rate (Not Required - Only for Testing)
