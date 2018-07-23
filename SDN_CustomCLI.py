@@ -251,7 +251,10 @@ class CustomCLI(CLI):
 						return;
 					continue;
 				break;
-			NOISE_PACKET_DELAY = float(8000 * gPacketConfig['MTU']) / float(NOISE_DATA_RATE);
+			try:
+				NOISE_PACKET_DELAY = float(8000 * gPacketConfig['MTU']) / float(NOISE_DATA_RATE);
+			except:
+				NOISE_PACKET_DELAY = sys.float_info.max;
 
 			# Call STREAM method on Separate Thread
 			thread_cluster = threading.Thread(target = STREAM, args = (
@@ -279,31 +282,31 @@ class CustomCLI(CLI):
 				thread_cluster.join();
 			
 			# Clear OVS Flows & Groups
-			info('\n*** Clearing all OVS Flows & Groups . . . ');
-			for x in gMain['switch_list']:
-				x.sendCmd('ovs-ofctl --protocols=OpenFlow13 replace-flows ' + x.name + ' \'' + BASE_DIR + os.path.sep + 'ovs_flows_default.txt\'');
-			for x in gMain['switch_list']:
-				x.waitOutput(verbose=True);
-			for x in gMain['switch_list']:
-				x.sendCmd('ovs-ofctl --protocols=OpenFlow13 del-groups ' + x.name);
-			for x in gMain['switch_list']:
-				x.waitOutput(verbose=True);
+			# info('\n*** Clearing all OVS Flows & Groups . . . ');
+			# for x in gMain['switch_list']:
+				# x.sendCmd('ovs-ofctl --protocols=OpenFlow13 replace-flows ' + x.name + ' \'' + BASE_DIR + os.path.sep + 'ovs_flows_default.txt\'');
+			# for x in gMain['switch_list']:
+				# x.waitOutput(verbose=True);
+			# for x in gMain['switch_list']:
+				# x.sendCmd('ovs-ofctl --protocols=OpenFlow13 del-groups ' + x.name);
+			# for x in gMain['switch_list']:
+				# x.waitOutput(verbose=True);
 
 			# Reset Session Manager (Only works for Multicast Session Manager)
-			info('\n*** Resetting Session Manager . . . ');
-			try:
-				_request = urllib2.Request("http://127.0.0.1:8080/wm/sessionmanager/reset/json");
-				_response = urllib2.build_opener(urllib2.ProxyHandler({})).open(_request).read(); # Bypass Proxy
-				_len = len(_response);
-				if _len < 4 or _response[:4] not in ("Fail", "Succ"):
-					raise Exception('Something went wrong!');
-			except urllib2.HTTPError as e:
-				if e.code == 404:
-					warn('\nWARNING: Session Manager not Found')
-				else:
-					warn('\nERROR: ' + str(e));
-			except Exception as e:
-				warn('\nERROR: ' + str(e));
+			# info('\n*** Resetting Session Manager . . . ');
+			# try:
+				# _request = urllib2.Request("http://127.0.0.1:8080/wm/sessionmanager/reset/json");
+				# _response = urllib2.build_opener(urllib2.ProxyHandler({})).open(_request).read(); # Bypass Proxy
+				# _len = len(_response);
+				# if _len < 4 or _response[:4] not in ("Fail", "Succ"):
+					# raise Exception('Something went wrong!');
+			# except urllib2.HTTPError as e:
+				# if e.code == 404:
+					# warn('\nWARNING: Session Manager not Found')
+				# else:
+					# warn('\nERROR: ' + str(e));
+			# except Exception as e:
+				# warn('\nERROR: ' + str(e));
 
 		# Check for Automation
 		if self.cliArg['argv']:
