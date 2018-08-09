@@ -5,7 +5,10 @@
 """
 
 # System Imports
-import sys, os, threading, time, math, random, csv, signal, atexit, urllib2;
+import sys, os, threading, time, math, random, csv, signal, atexit, urllib2, shlex, pipes;
+
+# Subprocess utils
+from subprocess import Popen, PIPE;
 
 # Suppress .pyc generation
 sys.dont_write_bytecode = True;
@@ -13,7 +16,7 @@ sys.dont_write_bytecode = True;
 # Mininet Imports
 from mininet.net import Mininet;
 from mininet.cli import CLI;
-from mininet.log import setLogLevel, info, warn;
+from mininet.log import setLogLevel, info as unsafeInfo, warn as unsafeWarn;
 from mininet.node import Node;
 from mininet.util import waitListening;
 from mininet.node import OVSSwitch, Controller, RemoteController;
@@ -22,6 +25,19 @@ from mininet.link import OVSIntf;
 from mininet.link import TCLink;
 from mininet.link import TCIntf;
 from mininet.clean import Cleanup;
+
+# Wrap and override unsafe logging methods
+logMutex = threading.Lock()
+
+def info(*args, **kwargs):
+	logMutex.acquire();
+	unsafeInfo(*args, **kwargs);
+	logMutex.release();
+
+def warn(*args, **kwargs):
+	logMutex.acquire();
+	unsafeWarn(*args, **kwargs);
+	logMutex.release();
 
 # Import SDN Utils
 from SDN_utils import makedirs_s, get_mean, IP2INT, INT2IP;
@@ -125,4 +141,5 @@ gStreamConfig = {
 gMutex = {
 	'STREAM_INIT' : threading.Lock(),
 	'STREAM_END' : threading.Lock(),
+	'SUBPROCESS' : threading.Lock(),
 }

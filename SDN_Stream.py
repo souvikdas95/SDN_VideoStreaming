@@ -7,22 +7,120 @@
 # Global Imports
 from SDN_global import *;
 
-def mnPopen(host, cmd, logfile, bash = True):
+"""
+	Opens process
+"""
+def mnPopen(host, cmd, fileOut = '/dev/null', shell = True, mnexec = True, executable = '/bin/bash', argv = ['-c']):
+	ret = [None, None];
 	try:
-		with open(logfile, 'r') as f:
-			pass;
-	except IOError:
-		with open(logfile, 'w') as f:
-			pass;
-	f = open(logfile, 'r+');
-	if bash:
-		cmd = '/bin/bash -c \"' + cmd + '\"';
-	return host.popen(cmd, stdout = f, stderr = f, shell = True), f;
+		gMutex['SUBPROCESS'].acquire();
+		
+		# Open file
+		try:
+			with open(fileOut, 'r') as fOut:
+				pass;
+		except IOError:
+			with open(fileOut, 'w') as fOut:
+				pass;
+		fOut = open(fileOut, 'r+');
 
-def mnPexec(host, cmd, bash = True):
-	if bash:
-		cmd = '/bin/bash -c \"' + cmd + '\"';
-	return host.pexec(cmd, shell = True)[0];
+		# Prepare Command
+		if shell:
+			if executable:
+				executable = executable + ' ' + ' '.join(pipes.quote(s) for s in argv);
+			else:
+				executable = str();
+			if isinstance(cmd, basestring):
+				if mnexec:
+					cmd = 'mnexec -a ' + str(host.pid) + ' ' + executable + ' ' + pipes.quote(cmd);
+				else:
+					cmd = executable + ' ' + pipes.quote(cmd);
+			else:
+				if mnexec:
+					cmd = 'mnexec -a ' + str(host.pid) + ' ' + executable + ' ' + (' '.join(pipes.quote(s) for s in cmd));
+				else:
+					cmd = executable + ' ' + (' '.join(pipes.quote(s) for s in cmd));
+		else:
+			if executable:
+				executable = [executable] + argv;
+			else:
+				executable = list();
+			if isinstance(cmd, basestring):
+				if mnexec:
+					cmd = ['mnexec', '-a', str(host.pid)] + executable + shlex.split(cmd);
+				else:
+					cmd = executable + shlex.split(cmd);
+			else:
+				if mnexec:
+					cmd = ['mnexec', '-a', str(host.pid)] + executable + [' '.join(pipes.quote(s) for s in cmd)];
+				else:
+					cmd = executable + [' '.join(pipes.quote(s) for s in cmd)];
+
+		ret = host._popen(cmd, stdout = fOut, stderr = fOut, shell = shell, preexec_fn = os.setsid, executable = None), fOut;
+	finally:
+		gMutex['SUBPROCESS'].release();
+
+	return ret;
+
+"""
+	Executes command 
+"""
+def mnPexec(host, cmd, shell = True, mnexec = True, executable = '/bin/bash', argv = ['-c']):
+	proc = None;
+	try:
+		gMutex['SUBPROCESS'].acquire();
+
+		# Prepare Command
+		if shell:
+			if executable:
+				executable = executable + ' ' + ' '.join(pipes.quote(s) for s in argv);
+			else:
+				executable = str();
+			if isinstance(cmd, basestring):
+				if mnexec:
+					cmd = 'mnexec -a ' + str(host.pid) + ' ' + executable + ' ' + pipes.quote(cmd);
+				else:
+					cmd = executable + ' ' + pipes.quote(cmd);
+			else:
+				if mnexec:
+					cmd = 'mnexec -a ' + str(host.pid) + ' ' + executable + ' ' + (' '.join(pipes.quote(s) for s in cmd));
+				else:
+					cmd = executable + ' ' + (' '.join(pipes.quote(s) for s in cmd));
+		else:
+			if executable:
+				executable = [executable] + argv;
+			else:
+				executable = list();
+			if isinstance(cmd, basestring):
+				if mnexec:
+					cmd = ['mnexec', '-a', str(host.pid)] + executable + shlex.split(cmd);
+				else:
+					cmd = executable + shlex.split(cmd);
+			else:
+				if mnexec:
+					cmd = ['mnexec', '-a', str(host.pid)] + executable + [' '.join(pipes.quote(s) for s in cmd)];
+				else:
+					cmd = executable + [' '.join(pipes.quote(s) for s in cmd)];
+
+		proc = host._popen(cmd, stdout = PIPE, stderr = PIPE, shell = shell, preexec_fn = os.setsid, executable = None);
+	finally:
+		gMutex['SUBPROCESS'].release();
+
+	# Wait for output
+	ret = list(proc.communicate());
+	ret.append(proc.wait());
+	
+	return ret;
+
+def mnPkill(proc, sig = signal.SIGTERM):
+	ret = None;
+	try:
+		gMutex['SUBPROCESS'].acquire();
+		os.killpg(os.getpgid(proc.pid), sig);
+		ret = proc.wait();
+	finally:
+		gMutex['SUBPROCESS'].release();
+	return ret;
 
 def STREAM(	CASE_ID,
 			CLUSTER_ID,
@@ -124,11 +222,12 @@ def STREAM(	CASE_ID,
 
 	# Draw Frame# Source Video
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Drawing Frames . . . ');
-	_proc, _f = mnPopen(source_host,
-						'ffmpeg -i \'' + VIDEO + '\' '
+	[_proc, _f] = mnPopen(host = source_host,
+						cmd = 'ffmpeg -i \'' + VIDEO + '\' '
 						'-vf \'drawtext=fontfile=Arial.ttf: text=%{n}: x=0: y=0: fontcolor=white: box=1: boxcolor=0x00000099\' '
 						'-y \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\'',
-						LOGS_DIR + os.path.sep + 'ffmpeg_drawtext' + '.log');
+						fileOut = LOGS_DIR + os.path.sep + 'ffmpeg_drawtext' + '.log',
+						mnexec = not gDockerConfig['ENABLE']);
 	_proc.wait();
 	_f.flush();
 	_f.close();
@@ -136,69 +235,75 @@ def STREAM(	CASE_ID,
 	# Calculate Source Frame Count
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Calculating Source Frame Count . . . ');
 	try:
-		frame_count_source = long(mnPexec(	source_host,
-											'ffprobe -v error -count_frames -select_streams v:0 -show_entries '
+		frame_count_source = long(mnPexec(	host = source_host,
+											cmd = 'ffprobe -v error -count_frames -select_streams v:0 -show_entries '
 											'stream=nb_read_frames -of default=nokey=1:noprint_wrappers=1 '
-											'-i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\''));
+											'-i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\'',
+											mnexec = not gDockerConfig['ENABLE'])[0]);
 	except ValueError:
 		info('\n[Cluster #' + str(CLUSTER_ID) + '] Error: Reading Source Frames Failed! ');
 		return;
 
 	# Generate SDP
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Generating SDP . . . ');
-	_proc, _f = mnPopen(source_host,
-						'ffmpeg -re -i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\' '
+	[_proc, _f] = mnPopen(host = source_host,
+						cmd = 'ffmpeg -re -i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\' '
 						'-c copy -sdp_file \'' + SDP_DIR + os.path.sep + V_NAME + '_source.sdp\' -t 0 '
 						'-f rtp -y \'rtp://@' + INT2IP(STREAM_IP) + ':' + str(STREAM_PORT) + '\'',
-						LOGS_DIR + os.path.sep + 'sdp.log');
+						fileOut = LOGS_DIR + os.path.sep + 'sdp.log',
+						mnexec = not gDockerConfig['ENABLE']);
 	_proc.wait();
 	_f.flush();
 	_f.close();
 
 	# SAP
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Starting SAP Process . . . ');
-	_proc, _f = mnPopen(source_host,
-						'cd \'' + EXPORTS_DIR + '\' && '
-						'python SAP_server.py '
+	[_proc, _f] = mnPopen(host = source_host,
+						cmd = 'cd \'' + EXPORTS_DIR + '\' && '
+						'nice -n -20 python SAP_server.py '
 						'\'' + source_host.IP(intf = source_host.defaultIntf()) + '\' '
 						'\'' + str(SAP_PORT) + '\' '
 						'\'' + SDP_DIR + os.path.sep + V_NAME + '_source.sdp\'',
-						LOGS_DIR + os.path.sep + 'SAP_server.log');
-	sap_client_command_args_init = 	'cd \'' + EXPORTS_DIR + '\' && python SAP_client.py ';
+						fileOut = LOGS_DIR + os.path.sep + 'SAP_server.log',
+						mnexec = not gDockerConfig['ENABLE']);
+	sap_client_command_args_init = 	'cd \'' + EXPORTS_DIR + '\' && nice -n -20 python SAP_client.py ';
 	sap_client_process_list = [];
 	for host in dest_host_list:
 		sap_client_command_args_end = (	'\'' + source_host.IP(intf = source_host.defaultIntf()) + '\' '
 										'\'' + str(SAP_PORT) + '\' '
 										'\'' + SDP_DIR + os.path.sep + V_NAME + '_destination_' + host.name + '.sdp\'');
-		sap_client_process_list.append(mnPopen(	host,
-												sap_client_command_args_init + sap_client_command_args_end,
-												LOGS_DIR + os.path.sep + 'SAP_client_' + host.name + '.log'));
+		sap_client_process_list.append(mnPopen(	host = host,
+												cmd = sap_client_command_args_init + sap_client_command_args_end,
+												fileOut = LOGS_DIR + os.path.sep + 'SAP_client_' + host.name + '.log',
+												mnexec = not gDockerConfig['ENABLE']));
 	for sap_client_process in sap_client_process_list:
 		sap_client_process[0].wait();
 		sap_client_process[1].flush();
 		sap_client_process[1].close();
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] SAP Completed! ');
 	duration = time.time() - start_time;
-	_proc.terminate();
+	mnPkill(_proc);
 	_f.flush();
 	_f.close();
 
 	# Initialize Source Packet Capture
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Initializing Source Packet Capture . . . ');
 	srcPcapProcess = [None, None];
-	srcPcapProcess[0], srcPcapProcess[1] = mnPopen(	source_host,
-											'touch \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\' && '
+	[srcPcapProcess[0], srcPcapProcess[1]] = mnPopen(	host = source_host,
+											cmd = 'touch \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\' && '
 											'tshark -i \'' + source_host.defaultIntf().name + '\' -f \'host ' + INT2IP(STREAM_IP) + ' and port ' + str(STREAM_PORT) + '\' -w \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\'',
-											LOGS_DIR + os.path.sep + 'tshark_source' + '.log');
+											fileOut = LOGS_DIR + os.path.sep + 'tshark_source' + '.log',
+											mnexec = not gDockerConfig['ENABLE']);
 
 	# Initialize Destination Packet Capture
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Initializing Destination Packet Capture . . . ');
 	dstPcapProcessList = [];
 	for host in dest_host_list:
-		dstPcapProcessList.append(mnPopen(	host,
-											'touch \'' + PCAP_DIR + os.path.sep + 'destination_host_' + host.name + '.pcap\' && '
+		dstPcapProcessList.append(mnPopen(	host = host,
+											cmd = 'touch \'' + PCAP_DIR + os.path.sep + 'destination_host_' + host.name + '.pcap\' && '
 											'tshark -i \'' + host.defaultIntf().name + '\' -f \'host ' + INT2IP(STREAM_IP) + ' and port ' + str(STREAM_PORT) + '\' -w \'' + PCAP_DIR + os.path.sep + 'destination_host_' + host.name + '.pcap\'',
-											LOGS_DIR + os.path.sep + 'tshark_destination_' + host.name + '.log'));
+											fileOut = LOGS_DIR + os.path.sep + 'tshark_destination_' + host.name + '.log',
+											mnexec = not gDockerConfig['ENABLE']));
 
 	# Start Noise
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Starting Noise . . . ');
@@ -209,28 +314,32 @@ def STREAM(	CASE_ID,
 	noiseProcessList = [];
 	if NOISE_TYPE == 1:
 		for host in noise_host_list:
-			noiseProcessList.append(mnPopen(	host,
-											'cd \'' + EXPORTS_DIR + '\' && '
+			noiseProcessList.append(mnPopen(	host = host,
+											cmd = 'cd \'' + EXPORTS_DIR + '\' && '
 											'python \'Noise_UDP.py\' \'1\' \'' + str(NOISE_PORT) + '\' \'' + str(gPacketConfig['NOISE_PACKET_PAYLOAD_SIZE']) + '\' \'' + str(NOISE_PACKET_DELAY) + '\'',
-											LOGS_DIR + os.path.sep + 'noise_udp_' + host.name + '.log'));
+											fileOut = LOGS_DIR + os.path.sep + 'noise_udp_' + host.name + '.log',
+											mnexec = not gDockerConfig['ENABLE']));
 	elif NOISE_TYPE == 2:
 		_noise_host_offset = noise_count / 2;
 		for i in range(0, _noise_host_offset):
 			j = _noise_host_offset + i;
-			noiseProcessList.append(mnPopen(	noise_host_list[i],
-											'cd \'' + EXPORTS_DIR + '\' && '
+			noiseProcessList.append(mnPopen(	host = noise_host_list[i],
+											cmd = 'cd \'' + EXPORTS_DIR + '\' && '
 											'python \'Noise_UDP.py\' \'2\' \'' + noise_host_list[j].IP(intf = noise_host_list[j].defaultIntf()) + '\' \'' + str(NOISE_PORT) + '\' \'' + str(gPacketConfig['NOISE_PACKET_PAYLOAD_SIZE']) + '\' \'' + str(NOISE_PACKET_DELAY) + '\'',
-											LOGS_DIR + os.path.sep + 'noise_udp_' + noise_host_list[i].name + '.log'));
-			noiseProcessList.append(mnPopen(	noise_host_list[j],
-											'cd \'' + EXPORTS_DIR + '\' && '
+											fileOut = LOGS_DIR + os.path.sep + 'noise_udp_' + noise_host_list[i].name + '.log',
+											mnexec = not gDockerConfig['ENABLE']));
+			noiseProcessList.append(mnPopen(	host = noise_host_list[j],
+											cmd = 'cd \'' + EXPORTS_DIR + '\' && '
 											'python \'Noise_UDP.py\' \'2\' \'' + noise_host_list[i].IP(intf = noise_host_list[i].defaultIntf()) + '\' \'' + str(NOISE_PORT) + '\' \'' + str(gPacketConfig['NOISE_PACKET_PAYLOAD_SIZE']) + '\' \'' + str(NOISE_PACKET_DELAY) + '\'',
-											LOGS_DIR + os.path.sep + 'noise_udp_' + noise_host_list[j].name + '.log'));
+											fileOut = LOGS_DIR + os.path.sep + 'noise_udp_' + noise_host_list[j].name + '.log',
+											mnexec = not gDockerConfig['ENABLE']));
 		# When Noise Count is Odd (1 Noise Host or Last Noise Host)
 		if (noise_count % 2):
-			noiseProcessList.append(mnPopen(	noise_host_list[-1],
-											'cd \'' + EXPORTS_DIR + '\' && '
+			noiseProcessList.append(mnPopen(	host = noise_host_list[-1],
+											cmd = 'cd \'' + EXPORTS_DIR + '\' && '
 											'python \'Noise_UDP.py\' \'2\' \'' + source_host.IP(intf = source_host.defaultIntf()) + '\' \'' + str(NOISE_PORT) + '\' \'' + str(gPacketConfig['NOISE_PACKET_PAYLOAD_SIZE']) + '\' \'' + str(NOISE_PACKET_DELAY) + '\'',
-											LOGS_DIR + os.path.sep + 'noise_udp_' + noise_host_list[-1].name + '.log'));
+											fileOut = LOGS_DIR + os.path.sep + 'noise_udp_' + noise_host_list[-1].name + '.log',
+											mnexec = not gDockerConfig['ENABLE']));
 
 
 	# Wait for 15 Seconds
@@ -239,7 +348,7 @@ def STREAM(	CASE_ID,
 
 	# Start Recording
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Preparing Recorders . . . ');
-	record_args_init = 'ffmpeg -protocol_whitelist file,udp,rtcp,rtp ';
+	record_args_init = 'nice -n -20 ffmpeg -protocol_whitelist file,udp,rtcp,rtp ';
 	_STREAM_COMPLETED = False;
 	def _record(_dest_host, _record_args):
 		_last = time.time();
@@ -248,9 +357,10 @@ def STREAM(	CASE_ID,
 			if _count > 0:
 				warn('\n*** WARNING: Recording Failed to Start for \'' + _dest_host.name + '\'. Retry #' + str(_count) + ' . . .');
 			_last = time.time();
-			_proc, _f = mnPopen(_dest_host,
-								_record_args,
-								LOGS_DIR + os.path.sep + 'recorder_' + host.name + '.log');
+			[_proc, _f] = mnPopen(host = _dest_host,
+								cmd = _record_args,
+								fileOut = LOGS_DIR + os.path.sep + 'recorder_' + host.name + '.log',
+								mnexec = not gDockerConfig['ENABLE']);
 			_proc.wait();
 			_f.flush();
 			_f.close();
@@ -266,11 +376,12 @@ def STREAM(	CASE_ID,
 
 	# Start Streaming
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Preparing Streamers . . . ');
-	stream_args =(	'ffmpeg -re -i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\' '
+	stream_args =(	'nice -n -20 ffmpeg -re -i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\' '
 					'-c copy -f rtp -y \'rtp://@' + INT2IP(STREAM_IP) + ':' + str(STREAM_PORT) + '\'');
-	_proc, _f = mnPopen(source_host,
-						stream_args,
-						LOGS_DIR + os.path.sep + 'streamer.log');
+	[_proc, _f] = mnPopen(host = source_host,
+						cmd = stream_args,
+						fileOut = LOGS_DIR + os.path.sep + 'streamer.log',
+						mnexec = not gDockerConfig['ENABLE']);
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Streaming Started!');
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Waiting for Stream Completion . . . ');
 	_proc.wait();
@@ -299,17 +410,18 @@ def STREAM(	CASE_ID,
 	# for host in dest_host_list:
 	# 	_clean_residual_processes(host);
 	# _clean_residual_processes(source_host);
-	srcPcapProcess[0].terminate();
+	mnPkill(srcPcapProcess[0]);
 	srcPcapProcess[1].flush();
-	srcPcapProcess[1].flush();
+	srcPcapProcess[1].close();
 	for dstPcapProcess in dstPcapProcessList:
-		dstPcapProcess[0].terminate();
+		mnPkill(dstPcapProcess[0]);
+		dstPcapProcess[0].wait();
 		dstPcapProcess[1].flush();
-		dstPcapProcess[1].flush();
+		dstPcapProcess[1].close();
 	for noiseProcess in noiseProcessList:
-		noiseProcess[0].terminate();
+		mnPkill(noiseProcess[0]);
 		noiseProcess[1].flush();
-		noiseProcess[1].flush();
+		noiseProcess[1].close();
 
 	# Process PSNR for each Recording
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Processing PSNR Results . . . ');
@@ -319,12 +431,12 @@ def STREAM(	CASE_ID,
 	rec_avg_psnr_mean = 0.0;
 	frame_count_dest = [];
 	for host in dest_host_list:
-		_proc, _f = mnPopen(host,
-							'ffmpeg -i \'' + REC_DIR + os.path.sep + 'recording_' + host.name + '.ts\' '
+		[_proc, _f] = mnPopen(host = host,
+							cmd = 'ffmpeg -i \'' + REC_DIR + os.path.sep + 'recording_' + host.name + '.ts\' '
 							'-vf \"movie=\'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\', psnr=stats_file=\'' + PSNR_DIR + os.path.sep + 'rec_' + host.name + '_psnr.txt\'\" '
 							'-f rawvideo -y /dev/null',
-							LOGS_DIR + os.path.sep + 'rec_' + host.name + '_psnr' + '.log',
-							bash = False);
+							fileOut = LOGS_DIR + os.path.sep + 'rec_' + host.name + '_psnr' + '.log',
+							mnexec = not gDockerConfig['ENABLE']);
 		_proc.wait();
 		_f.flush();
 		_f.close();
@@ -370,10 +482,10 @@ def STREAM(	CASE_ID,
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Processing PCAP Results . . . ');
 	packets_sent = -1;
 	try:
-		packets_sent_response = mnPexec(	source_host,
-											'tshark -r \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\' '
+		packets_sent_response = mnPexec(	host = source_host,
+											cmd = 'tshark -r \'' + PCAP_DIR + os.path.sep + 'source_host.pcap\' '
 											'-q -z io,phs | sed -n \'7,7p\' | cut -d \' \' -f 40 | cut -d \':\' -f 2',
-											bash = True).split('\n');
+											mnexec = not gDockerConfig['ENABLE'])[0].split('\n');
 		for x in packets_sent_response:
 			try:
 				packets_sent = int(x);
@@ -387,10 +499,10 @@ def STREAM(	CASE_ID,
 	for host in dest_host_list:
 		packets_recv = -1;
 		try:
-			packets_recv_response = mnPexec(	host,
-												'tshark -r \'' + PCAP_DIR + os.path.sep + 'destination_host_' + host.name + '.pcap\' '
+			packets_recv_response = mnPexec(	host = host,
+												cmd = 'tshark -r \'' + PCAP_DIR + os.path.sep + 'destination_host_' + host.name + '.pcap\' '
 												'-q -z io,phs | sed -n \'7,7p\' | cut -d \' \' -f 40 | cut -d \':\' -f 2',
-												bash = True).split('\n');
+												mnexec = not gDockerConfig['ENABLE'])[0].split('\n');
 			for x in packets_recv_response:
 				try:
 					packets_recv = int(x);

@@ -7,9 +7,6 @@
 # Global Imports
 from SDN_global import *;
 
-# Import Shlex (For parameter parsing)
-import shlex;
-
 # Import STREAM method
 from SDN_Stream import STREAM;
 
