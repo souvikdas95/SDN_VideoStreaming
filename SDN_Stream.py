@@ -58,6 +58,7 @@ def mnPopen(host, cmd, fileOut = '/dev/null', shell = True, mnexec = True, execu
 
 		ret = host._popen(cmd, stdout = fOut, stderr = fOut, shell = shell, preexec_fn = os.setsid, executable = None), fOut;
 	finally:
+		time.sleep(0.1);
 		gMutex['SUBPROCESS'].release();
 
 	return ret;
@@ -104,6 +105,7 @@ def mnPexec(host, cmd, shell = True, mnexec = True, executable = '/bin/bash', ar
 
 		proc = host._popen(cmd, stdout = PIPE, stderr = PIPE, shell = shell, preexec_fn = os.setsid, executable = None);
 	finally:
+		time.sleep(0.1);
 		gMutex['SUBPROCESS'].release();
 
 	# Wait for output
@@ -119,6 +121,7 @@ def mnPkill(proc, sig = signal.SIGTERM):
 		os.killpg(os.getpgid(proc.pid), sig);
 		ret = proc.wait();
 	finally:
+		time.sleep(0.1);
 		gMutex['SUBPROCESS'].release();
 	return ret;
 
@@ -239,7 +242,7 @@ def STREAM(	CASE_ID,
 											cmd = 'ffprobe -v error -count_frames -select_streams v:0 -show_entries '
 											'stream=nb_read_frames -of default=nokey=1:noprint_wrappers=1 '
 											'-i \'' + STREAM_DESTDIR + os.path.sep + 'mod_' + SOURCE_FILENAME + '\'',
-											mnexec = not gDockerConfig['ENABLE'])[0]);
+											mnexec = not gDockerConfig['ENABLE'])[0].split('\n', 1)[0]);
 	except ValueError:
 		info('\n[Cluster #' + str(CLUSTER_ID) + '] Error: Reading Source Frames Failed! ');
 		return;
@@ -256,8 +259,8 @@ def STREAM(	CASE_ID,
 	_f.flush();
 	_f.close();
 
-	# SAP
-	info('\n[Cluster #' + str(CLUSTER_ID) + '] Starting SAP Process . . . ');
+	# Start SAP Server
+	info('\n[Cluster #' + str(CLUSTER_ID) + '] Starting SAP Server . . . ');
 	[_proc, _f] = mnPopen(host = source_host,
 						cmd = 'cd \'' + EXPORTS_DIR + '\' && '
 						'nice -n -20 python SAP_server.py '
@@ -266,6 +269,13 @@ def STREAM(	CASE_ID,
 						'\'' + SDP_DIR + os.path.sep + V_NAME + '_source.sdp\'',
 						fileOut = LOGS_DIR + os.path.sep + 'SAP_server.log',
 						mnexec = not gDockerConfig['ENABLE']);
+
+	# Wait 15 Seconds for Topology to update
+	info('\n[Cluster #' + str(CLUSTER_ID) + '] Waiting 15 Seconds for Topology to update . . . ');
+	time.sleep(15);
+
+	# Start SAP Clients
+	info('\n[Cluster #' + str(CLUSTER_ID) + '] Starting SAP Clients . . . ');
 	sap_client_command_args_init = 	'cd \'' + EXPORTS_DIR + '\' && nice -n -20 python SAP_client.py ';
 	sap_client_process_list = [];
 	for host in dest_host_list:
@@ -341,14 +351,10 @@ def STREAM(	CASE_ID,
 											fileOut = LOGS_DIR + os.path.sep + 'noise_udp_' + noise_host_list[-1].name + '.log',
 											mnexec = not gDockerConfig['ENABLE']));
 
-
-	# Wait for 15 Seconds
-	info('\n[Cluster #' + str(CLUSTER_ID) + '] Wait 15 Seconds for Network to Settle . . . ');
-	time.sleep(15);
-
 	# Start Recording
-	info('\n[Cluster #' + str(CLUSTER_ID) + '] Preparing Recorders . . . ');
+	info('\n[Cluster #' + str(CLUSTER_ID) + '] Starting Recorders . . . ');
 	record_args_init = 'nice -n -20 ffmpeg -protocol_whitelist file,udp,rtcp,rtp ';
+	_STREAM_STARTED = False;
 	_STREAM_COMPLETED = False;
 	def _record(_dest_host, _record_args):
 		_last = time.time();
@@ -364,7 +370,8 @@ def STREAM(	CASE_ID,
 			_proc.wait();
 			_f.flush();
 			_f.close();
-			_count += 1;
+			if _STREAM_STARTED == True:
+				_count += 1;
 	thread_record_list = [];
 	for host in dest_host_list:
 		record_args_end =(	'-i \'' + SDP_DIR + os.path.sep + V_NAME + '_destination_' + host.name + '.sdp\' -c copy -y '
@@ -372,7 +379,10 @@ def STREAM(	CASE_ID,
 		t = threading.Thread(target=_record, args=(host, record_args_init + record_args_end));
 		t.start();
 		thread_record_list.append(t);
-	time.sleep(1);
+
+	# Wait 5 Seconds for Recorder to settle
+	info('\n[Cluster #' + str(CLUSTER_ID) + '] Waiting 5 Seconds for Recorders to settle . . . ');
+	time.sleep(5);
 
 	# Start Streaming
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Preparing Streamers . . . ');
@@ -382,6 +392,7 @@ def STREAM(	CASE_ID,
 						cmd = stream_args,
 						fileOut = LOGS_DIR + os.path.sep + 'streamer.log',
 						mnexec = not gDockerConfig['ENABLE']);
+	_STREAM_STARTED = True;
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Streaming Started!');
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Waiting for Stream Completion . . . ');
 	_proc.wait();
@@ -422,6 +433,21 @@ def STREAM(	CASE_ID,
 		mnPkill(noiseProcess[0]);
 		noiseProcess[1].flush();
 		noiseProcess[1].close();
+	
+	# Calculate Received Frame Count
+	info('\n[Cluster #' + str(CLUSTER_ID) + '] Calculating Received Frame Counts . . . ');
+	frame_count_dest_list = [];
+	for host in dest_host_list:
+		frame_count_dest = 0;
+		try:
+			frame_count_dest = long(mnPexec(host = source_host,
+											cmd = 	'ffprobe -v error -count_frames -select_streams v:0 -show_entries '
+													'stream=nb_read_frames -of default=nokey=1:noprint_wrappers=1 '
+													'-i \'' + REC_DIR + os.path.sep + 'recording_' + host.name + '.ts\'',
+											mnexec = not gDockerConfig['ENABLE'])[0].split('\n', 1)[0]);
+		except ValueError:
+			pass;
+		frame_count_dest_list.append(frame_count_dest);
 
 	# Process PSNR for each Recording
 	info('\n[Cluster #' + str(CLUSTER_ID) + '] Processing PSNR Results . . . ');
@@ -429,7 +455,6 @@ def STREAM(	CASE_ID,
 	rec_avg_psnr_list = [];
 	rec_avg_mse_mean = 0.0;
 	rec_avg_psnr_mean = 0.0;
-	frame_count_dest = [];
 	for host in dest_host_list:
 		[_proc, _f] = mnPopen(host = host,
 							cmd = 'ffmpeg -i \'' + REC_DIR + os.path.sep + 'recording_' + host.name + '.ts\' '
@@ -471,7 +496,6 @@ def STREAM(	CASE_ID,
 				avg_psnr = float('inf'); # Make sure to not use this value for calculation anywhere!
 			rec_avg_mse_list.append(avg_mseavg);
 			rec_avg_psnr_list.append(avg_psnr);
-			frame_count_dest.append(frame_count);
 	rec_avg_mse_mean = get_mean(rec_avg_mse_list);
 	try:
 		rec_avg_psnr_mean = 10 * math.log10(255 * 255 / rec_avg_mse_mean);
@@ -613,7 +637,7 @@ def STREAM(	CASE_ID,
 			fieldvalue.append(1); # 'SourceHosts'
 			fieldvalue.append(len(dest_host_list)); # 'DestinationHosts'
 			fieldvalue.append(frame_count_source); # 'FramesTx'
-			fieldvalue.append(get_mean(frame_count_dest)); # 'FramesRx'
+			fieldvalue.append(get_mean(frame_count_dest_list)); # 'FramesRx'
 			fieldvalue.append(packets_sent); # 'PacketsTx'
 			fieldvalue.append(get_mean(packets_recv_list)); # 'PacketsRx'
 			fieldvalue.append(rec_avg_psnr_mean); # 'avgPSNR'
@@ -665,7 +689,7 @@ def STREAM(	CASE_ID,
 			fieldvalue_list.append([source_host.name]); # Vertical Format 'SourceHosts'
 			fieldvalue_list.append(dest_host_list); # Vertical Format 'DestinationHosts'
 			fieldvalue_list.append([frame_count_source]); # Vertical Format 'FramesTx'
-			fieldvalue_list.append(frame_count_dest); # Vertical Format 'FramesRx'
+			fieldvalue_list.append(frame_count_dest_list); # Vertical Format 'FramesRx'
 			fieldvalue_list.append([packets_sent]); # Vertical Format 'PacketsTx'
 			fieldvalue_list.append(packets_recv_list); # Vertical Format 'PacketsRx'
 			fieldvalue_list.append(rec_avg_psnr_list); # Vertical Format 'avgPSNR'
@@ -680,8 +704,8 @@ def STREAM(	CASE_ID,
 					if row_count < len(fieldvalue_list[i]):
 						row[key] = fieldvalue_list[i][row_count];
 						is_valid = True;	# row is valid only if at least 1 column is different from previous row.
-					elif len(fieldvalue_list[i]):
-						row[key] = fieldvalue_list[i][-1];	# print last element if the list corresponding to the given column is exhausted.
+					# elif len(fieldvalue_list[i]):
+						# row[key] = fieldvalue_list[i][-1];	# print last element if the list corresponding to the given column is exhausted.
 					else:
 						row[key] = '-';	# list corresponding to the given column is empty.
 				if not row or not is_valid:
