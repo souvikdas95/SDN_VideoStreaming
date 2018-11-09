@@ -558,6 +558,39 @@ def STREAM(	CASE_ID,
 	# 				noise_rate = -1;
 	# 			break;
 	
+	# Retrieve Path Metrics
+	info('\n[Cluster #' + str(CLUSTER_ID) + '] Retrieving Path Metrics . . . ');
+	multicast_path_hopcount = '-';
+	multicast_path_latency = '-';
+	multicast_path_cost = '-';
+	srcSwId = '';
+	for i in range(gMain['switch_count']):
+		for j in range(len(gMain['switch_host_list'][i])):
+			if source_host == gMain['switch_host_list'][i][j]:
+				_dpid = gMain['switch_list'][i].dpid;
+				srcSwId = ':'.join(a+b for a,b in zip(_dpid[::2], _dpid[1::2]));
+				break;
+		if srcSwId:
+			break;
+	try:
+		_url = "http://127.0.0.1:8080//wm/sessionmanager/pathStats";
+		_url = _url + "?" + "srcSwId=" + str(srcSwId);
+		_url = _url + "&" + "dstIPAddress=" + str(INT2IP(STREAM_IP));
+		_url = _url + "&" + "dstTransportPort=" + str(STREAM_PORT);
+		_request = urllib2.Request(_url);
+		_response = urllib2.build_opener(urllib2.ProxyHandler({})).open(_request).read(); # Bypass Proxy
+		_data = json.loads(_response);
+		multicast_path_hopcount = _data['HopCount'];
+		multicast_path_latency = _data['Latency'];
+		multicast_path_cost = _data['Cost'];
+	except urllib2.HTTPError as e:
+		if e.code == 404:
+			warn('\nWARNING: Path Metrics not Found')
+		else:
+			warn('\nERROR: ' + str(e));
+	except Exception as e:
+		warn('\nERROR: ' + str(e));
+	
 	# Create Report
 	try:
 		gMutex['STREAM_END'].acquire();
@@ -589,6 +622,9 @@ def STREAM(	CASE_ID,
 						'NoiseHosts',
 						'SourceHosts',
 						'DestinationHosts',
+						'MulticastPath_HopCount',
+						'MulticastPath_Latency',
+						'MulticastPath_Cost',
 						'FramesTx',
 						'FramesRx',
 						'PacketsTx',
@@ -636,6 +672,9 @@ def STREAM(	CASE_ID,
 			fieldvalue.append(len(noise_host_list)); # 'NoiseHosts'
 			fieldvalue.append(1); # 'SourceHosts'
 			fieldvalue.append(len(dest_host_list)); # 'DestinationHosts'
+			fieldvalue.append(multicast_path_hopcount); # 'MulticastPath_HopCount'
+			fieldvalue.append(multicast_path_latency); # 'MulticastPath_Latency'
+			fieldvalue.append(multicast_path_cost); # 'MulticastPath_Cost'
 			fieldvalue.append(frame_count_source); # 'FramesTx'
 			fieldvalue.append(get_mean(frame_count_dest_list)); # 'FramesRx'
 			fieldvalue.append(packets_sent); # 'PacketsTx'
@@ -688,6 +727,9 @@ def STREAM(	CASE_ID,
 			fieldvalue_list.append(noise_host_list); # Vertical Format 'NoiseHosts'
 			fieldvalue_list.append([source_host.name]); # Vertical Format 'SourceHosts'
 			fieldvalue_list.append(dest_host_list); # Vertical Format 'DestinationHosts'
+			fieldvalue_list.append([multicast_path_hopcount]); # 'MulticastPath_HopCount'
+			fieldvalue_list.append([multicast_path_latency]); # 'MulticastPath_Latency'
+			fieldvalue_list.append([multicast_path_cost]); # 'MulticastPath_Cost'
 			fieldvalue_list.append([frame_count_source]); # Vertical Format 'FramesTx'
 			fieldvalue_list.append(frame_count_dest_list); # Vertical Format 'FramesRx'
 			fieldvalue_list.append([packets_sent]); # Vertical Format 'PacketsTx'
